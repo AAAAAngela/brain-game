@@ -1,0 +1,987 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>脑洞大侦探 </title>
+    <style>
+        :root {
+            --purple: #e040fb;
+            --green: #69f0ae;
+            --red: #ff5252;
+            --yellow: #ffd740;
+            --neon1: #ff00ff;
+            --neon2: #00ffff;
+            --neon3: #ffaa00;
+            --bg: #050510;
+            --card-bg: rgba(18, 8, 35, 0.9);
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: "Microsoft YaHei", "PingFang SC", sans-serif;
+            background: var(--bg);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 15px;
+            overflow-x: hidden;
+            position: relative;
+            transition: box-shadow 0.3s;
+        }
+        body.fire-border { box-shadow: inset 0 0 60px #ff6600, inset 0 0 120px #ff0000; }
+        .stars { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 0; }
+        .star {
+            position: absolute; background: white; border-radius: 50%;
+            animation: twinkle var(--d) infinite, floatStar 6s infinite alternate; opacity: 0;
+        }
+        @keyframes twinkle { 0%,100% { opacity: 0.2; } 50% { opacity: 1; } }
+        @keyframes floatStar { 0% { transform: translateY(0px); } 100% { transform: translateY(-20px); } }
+        .container { position: relative; z-index: 1; width: 100%; max-width: 500px; }
+        .hint-wrap {
+            position: fixed; top: 15px; right: 15px; z-index: 100;
+            display: flex; gap: 10px; flex-wrap: wrap; justify-content: flex-end;
+        }
+        .hint-btn {
+            background: linear-gradient(135deg, #e040fb, #ff00ff); color: white;
+            border: none; padding: 10px 18px; border-radius: 30px;
+            font-weight: bold; font-size: 14px; cursor: pointer;
+            box-shadow: 0 0 15px #e040fb; transition: 0.3s;
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+        .coin-display {
+            background: linear-gradient(135deg, #ffd740, #ffaa00); color: black;
+            border: none; padding: 10px 18px; border-radius: 30px;
+            font-weight: bold; font-size: 14px; box-shadow: 0 0 20px #ffd740;
+            display: flex; align-items: center; gap: 5px;
+            border: 1px solid rgba(255,255,255,0.3);
+        }
+        .hint-btn:active { transform: scale(0.9); }
+        .hint-btn:disabled { background: #555; box-shadow: none; }
+        .modal-mask {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.8); z-index: 999; display: none;
+            justify-content: center; align-items: center;
+        }
+        .modal-box {
+            background: linear-gradient(145deg, #1e1e3f, #0e0e2a); color: white;
+            padding: 25px; border-radius: 25px; max-width: 360px; text-align: center;
+            box-shadow: 0 0 40px var(--purple); animation: popIn 0.3s;
+            border: 1px solid var(--purple);
+        }
+        @keyframes popIn { from { transform: scale(0.7); } to { transform: scale(1); } }
+        .btn {
+            display: block; width: 100%; padding: 16px; border: none; border-radius: 50px;
+            font-size: 18px; font-weight: bold; margin: 10px 0; cursor: pointer;
+            transition: 0.2s; letter-spacing: 1px; color: white;
+            position: relative; overflow: hidden;
+        }
+        .btn:active { transform: scale(0.93); }
+        .btn-start { background: linear-gradient(90deg, #ff00ff, #ff5252); box-shadow: 0 0 25px #ff5252; border: 1px solid rgba(255,255,255,0.3); }
+        .btn-true { background: var(--green); color: black; box-shadow: 0 0 15px var(--green); }
+        .btn-false { background: var(--red); box-shadow: 0 0 15px var(--red); }
+        .btn-other { background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); backdrop-filter: blur(5px); }
+        .hidden { display: none !important; }
+        .game-card {
+            background: var(--card-bg); border-radius: 25px; padding: 20px;
+            box-shadow: 0 0 35px rgba(224,64,251,0.4); margin: 15px 0;
+            color: white; border: 1px solid rgba(224,64,251,0.5);
+            backdrop-filter: blur(10px); transition: all 0.3s;
+        }
+        .status-bar { display: flex; justify-content: space-between; color: #aaa; margin: 10px 0; flex-wrap: wrap; }
+        .progress-bar { height: 8px; background: #333; border-radius: 10px; margin: 10px 0; overflow: hidden; }
+        .progress-fill {
+            height: 100%; background: linear-gradient(90deg, #e040fb, #ff00ff);
+            width: 0; transition: 0.5s; box-shadow: 0 0 10px #e040fb;
+        }
+        .timer { font-size: 24px; }
+        .timer.urgent { color: var(--red); animation: shake 0.3s infinite; text-shadow: 0 0 15px red; }
+        @keyframes shake { 0%,100% { transform: translateX(0); } 25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } }
+        .q-icon { font-size: 50px; text-align: center; margin: 15px 0; filter: drop-shadow(0 0 10px var(--neon2)); }
+        .question { font-size: 18px; color: #ddd; text-align: center; line-height: 1.6; }
+        .feed-title { font-size: 24px; text-align: center; }
+        .explain-box {
+            background: rgba(255,255,255,0.05); padding: 15px; border-radius: 15px;
+            margin: 15px 0; border-left: 3px solid var(--neon2);
+        }
+        .particle {
+            position: fixed; z-index: 998; pointer-events: none;
+            animation: particleFly 1.5s ease-out forwards;
+        }
+        @keyframes particleFly {
+            0% { opacity:1; transform: translate(0,0) scale(1); }
+            100% { opacity:0; transform: translate(var(--x), var(--y)) scale(0); }
+        }
+        .toast {
+            position: fixed; top: 20%; left: 50%; transform: translateX(-50%);
+            background: rgba(30,30,60,0.95); color: white; padding: 10px 20px;
+            border-radius: 30px; font-weight: bold; z-index: 1001;
+            animation: toastIn 0.5s ease-out; pointer-events: none;
+            border: 1px solid var(--purple); box-shadow: 0 0 20px var(--purple);
+        }
+        @keyframes toastIn { 0% { opacity:0; transform: translateX(-50%) scale(0.5); } 100% { opacity:1; transform: translateX(-50%) scale(1); } }
+        .shop-item {
+            display: inline-flex; align-items: center; background: rgba(255,255,255,0.08);
+            padding: 8px 14px; border-radius: 20px; margin: 5px; cursor: pointer;
+            font-size: 14px; transition: 0.2s; border: 1px solid rgba(255,255,255,0.15);
+        }
+        .shop-item:active { transform: scale(0.95); background: rgba(255,255,255,0.2); }
+        .shop-item.disabled { opacity: 0.4; cursor: not-allowed; }
+        .crazy-badge {
+            position: fixed; top: 10px; left: 50%; transform: translateX(-50%);
+            background: red; color: white; padding: 5px 20px; border-radius: 20px;
+            font-weight: bold; z-index: 1000; animation: pulse 0.5s infinite;
+            border: 1px solid white;
+        }
+        @keyframes pulse { 0%,100% { box-shadow: 0 0 10px red; } 50% { box-shadow: 0 0 30px red; } }
+        .diff-selector, .cat-selector { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin: 15px 0; }
+        .diff-btn, .cat-chip {
+            padding: 8px 16px; border-radius: 25px; font-weight: bold; cursor: pointer;
+            transition: 0.2s; background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.2); color: white;
+        }
+        .diff-btn.active {
+            background: linear-gradient(135deg, var(--purple), #ff00ff);
+            box-shadow: 0 0 15px var(--purple); border-color: white;
+        }
+        .cat-chip.selected { background: var(--neon2); color: black; border-color: white; box-shadow: 0 0 15px var(--neon2); }
+        .title-glow { text-shadow: 0 0 20px var(--purple), 0 0 40px var(--neon1); }
+    </style>
+</head>
+<body>
+<div class="stars" id="starsContainer"></div>
+<div class="hint-wrap">
+    <div class="coin-display" id="coinDisplay">🪙 <span id="totalCoins">0</span></div>
+    <button class="hint-btn" id="hintBtn" onclick="useHint()">💡 提示 (<span id="hintCount">2</span>)</button>
+</div>
+<div class="container">
+    <div class="modal-mask" id="modalMask">
+        <div class="modal-box" id="modalContent"></div>
+    </div>
+
+    <!-- 首页 -->
+    <div id="cover" class="game-card" style="text-align:center">
+      <span id="busuanzi_container_site_uv" style="color:#aaa;">
+    👥 总访客数：<span id="busuanzi_value_site_uv"></span> 人
+</span>
+<script async src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+        <div style="font-size:70px;">💀</div>
+        <h1 class="title-glow" id="gameTitle" style="color:var(--purple);cursor:pointer;" onclick="clickTitle()">脑洞大侦探</h1>
+        <p style="color:#aaa;">500题高迷惑题库 · 难度自选 · 类别自定</p>
+        <div class="diff-selector">
+            <span class="diff-btn active" id="diffEasy" onclick="setDifficulty('easy')">🐣 十分簡單 (7s)</span>
+            <span class="diff-btn" id="diffNormal" onclick="setDifficulty('normal')">⚡ 簡單 (5s)</span>
+            <span class="diff-btn" id="diffHell" onclick="setDifficulty('hell')">💀 非常簡單 (3s)</span>
+        </div>
+        <div class="cat-selector" id="catSelector"></div>
+        <button class="btn btn-start" onclick="startIntro()">🚀 开始整活</button>
+        <button class="btn btn-other" onclick="showRank()">🏆 排行榜</button>
+        <button class="btn btn-other" onclick="shareGame()">📤 喊人来受虐</button>
+        <p style="color:#555;font-size:12px;margin-top:10px;">🤫 快速点标题5次开启疯狂模式</p>
+    </div>
+
+    <!-- 游戏界面 -->
+    <div id="gameBox" class="hidden">
+        <div id="qCard" class="game-card">
+            <div class="status-bar">
+                <span>📖 <span id="pageNum">1/20</span></span>
+                <span>💰 <span id="nowScore">0</span></span>
+                <span class="timer" id="timerDisplay">10s</span>
+            </div>
+            <div class="progress-bar"><div id="progressBar" class="progress-fill"></div></div>
+            <div class="q-icon" id="iconBox">💀</div>
+            <div class="question" id="questionText"></div>
+            <button class="btn btn-true" onclick="selectAns(true)">✅ 真的</button>
+            <button class="btn btn-false" onclick="selectAns(false)">❌ 假的</button>
+            <button class="btn btn-other" onclick="selectAns('dontKnow')">🤷 我不会</button>
+            <div style="display:flex;flex-wrap:wrap;justify-content:center;margin-top:10px;">
+                <span class="shop-item" onclick="buyTime()">⏳ +5秒 🪙4</span>
+                <span class="shop-item" onclick="buyHint()">💡 付费提示 🪙4</span>
+                <span class="shop-item" id="doubleItem" onclick="buyDouble()">🔥 双倍积分 🪙6</span>
+                <span class="shop-item" onclick="buyInsurance()">🛡️ 保险卡 🪙5</span>
+            </div>
+            <div style="display:flex;gap:10px;">
+                <button class="btn btn-other" onclick="restartGame()">🔄 重来</button>
+                <button class="btn btn-other" onclick="backToCover()">🚪 退出</button>
+            </div>
+        </div>
+        <div id="feedCard" class="game-card hidden">
+            <div class="feed-title" id="feedTitle"></div>
+            <div class="explain-box" id="tipsBox"></div>
+            <button class="btn btn-other" onclick="nextQuestion()">➡️ 下一题</button>
+            <div style="display:flex;gap:10px;">
+                <button class="btn btn-other" onclick="restartGame()">🔄 重来</button>
+                <button class="btn btn-other" onclick="backToCover()">🚪 退出</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 结果页 -->
+    <div id="resultBox" class="game-card hidden" style="text-align:center">
+        <div style="font-size:60px;" id="resultEmoji">👑</div>
+        <h2 style="color:var(--purple);">整活结束！</h2>
+        <div style="font-size:40px;font-weight:bold;color:var(--yellow);" id="finalScore">0</div>
+        <div style="font-size:20px;color:#ccc;" id="rankTitle"></div>
+        <div style="background:rgba(255,255,255,0.05);padding:15px;border-radius:15px;margin:15px 0;color:#ccc;" id="iqReport"></div>
+        <p style="color:var(--yellow);">🪙 本局获得金币：<span id="earnedCoins">0</span> | 总金币：<span id="finalTotalCoins">0</span></p>
+        <input id="playerName" placeholder="输入你的沙雕昵称" style="width:80%;padding:12px;border-radius:20px;border:2px solid var(--purple);background:transparent;color:white;text-align:center;margin:10px 0;outline:none;">
+        <button class="btn btn-start" onclick="saveScore()">📝 提交分数</button>
+        <div style="display:flex;gap:10px;">
+            <button class="btn btn-other" onclick="restartGame()">🔄 再整一次</button>
+            <button class="btn btn-other" onclick="openWrongBook()">📖 打脸记录</button>
+        </div>
+        <button class="btn btn-other" onclick="backToCover()">🚪 回首页</button>
+    </div>
+
+    <!-- 排行榜 -->
+    <div id="rankBox" class="game-card hidden">
+        <h3 style="text-align:center;color:var(--purple);">🏆 全球排行榜（分享导入可合并）</h3>
+        <table style="width:100%;color:white;" id="rankTable">
+            <tr><th>名次</th><th>玩家</th><th>分数</th></tr>
+        </table>
+        <button class="btn btn-other" onclick="showRank()" style="margin-top:15px;">🔄 刷新排行榜</button>
+        </div>
+        <button class="btn btn-other" onclick="backToCover()">🔙 返回</button>
+    </div>
+
+    <!-- 错题本 -->
+    <div id="wrongBox" class="game-card hidden">
+        <h3 style="color:var(--red);text-align:center;">👊 大型打脸现场</h3>
+        <div id="wrongList" style="color:white;"></div>
+        <button class="btn btn-other" onclick="backToResult()">🔙 返回成绩</button>
+    </div>
+</div>
+
+<script>
+    // ==================== 500道高迷惑性题库 ====================
+const allQuestions = [
+    // ===== 健康医疗（约80题） =====
+    { q: "流鼻血时仰头止血是错误的方法。", ans: true, icon: "👃", tip: "仰头会导致血液倒流进气管或食道，正确做法是低头按压鼻翼。" },
+    { q: "运动后立刻大量喝水会加重心脏负担。", ans: true, icon: "💧", tip: "刚运动完心脏仍高速运转，大量水分快速进入血容量骤增，应小口慢饮。" },
+    { q: "饭后立即刷牙反而可能损伤牙齿。", ans: true, icon: "🪥", tip: "食物中的酸性物质会暂时软化牙釉质，立即刷牙会加速磨损。" },
+    { q: "蚊子叮咬后用肥皂水清洗可以缓解瘙痒。", ans: true, icon: "🦟", tip: "肥皂水呈碱性，能中和蚊子唾液的酸性，减轻痒感。" },
+    { q: "长期不吃早饭会增加患胆结石的风险。", ans: true, icon: "🍳", tip: "不吃早餐会使胆汁在胆囊内长时间滞留、浓缩，容易形成结石。" },
+    { q: "医院打针前的皮试是为了测试是否过敏。", ans: true, icon: "💉", tip: "皮试就是过敏反应试验，将微量药液注入皮内观察反应。" },
+    { q: "水银体温计打破后洒落的水银应迅速用硫磺粉覆盖。", ans: true, icon: "🌡️", tip: "硫磺与水银反应生成硫化汞，可降低汞蒸气的挥发，同时需通风。" },
+    { q: "穿黄色衣服更容易招引蚜虫。", ans: true, icon: "👕", tip: "蚜虫具有趋黄性，黄色衣物或物品确实更吸引它们。" },
+    { q: "眼睛进了灰尘后频繁揉眼可能划伤角膜。", ans: true, icon: "👁️", tip: "揉眼会让异物在眼球表面摩擦，可能造成角膜上皮损伤。" },
+    { q: "飞机起飞降落时嚼口香糖可以缓解耳朵不适。", ans: true, icon: "✈️", tip: "咀嚼和吞咽动作能促使咽鼓管打开，平衡中耳内外气压。" },
+    { q: "304不锈钢保温杯内壁属于食品级安全材质。", ans: true, icon: "☕", tip: "304不锈钢耐腐蚀性较好，符合国家食品接触材料标准。" },
+    { q: "废旧电池不能与生活垃圾混在一起丢弃。", ans: true, icon: "🔋", tip: "电池含重金属，需单独回收处理，随意丢弃会污染环境。" },
+    { q: "眼睛盯着太阳看哪怕几秒也可能造成视网膜损伤。", ans: true, icon: "☀️", tip: "太阳的强光会聚焦在视网膜上，短时间注视即可造成热损伤。" },
+    { q: "高铁车厢内禁止吸烟是因为烟雾会触发警报。", ans: true, icon: "🚄", tip: "高铁采用全封闭车厢，烟雾传感器极为灵敏，吸烟会触发报警导致降速或停车。" },
+    { q: "被狗追时站着不动比转身逃跑更安全。", ans: true, icon: "🐕", tip: "逃跑会激发狗的追逐本能，站着不动、避免眼神接触反而可能降低攻击欲望。" },
+    { q: "塑料瓶底部的数字代表该塑料的安全类别。", ans: true, icon: "🧴", tip: "底部的三角形数字是塑料分类标志，1-7分别代表PET、HDPE等材质。" },
+    { q: "紧张时手心出汗是交感神经兴奋所致。", ans: true, icon: "✋", tip: "紧张时交感神经兴奋，导致汗腺分泌增加，尤其是手掌、脚底等部位。" },
+    { q: "风筝线绷紧时非常锋利，可能割伤行人。", ans: true, icon: "🪁", tip: "风筝线在紧绷状态下受力极大且极细，对快速经过的物体如同利刃。" },
+    { q: "香蕉表皮出现黑点说明糖分增加口感更甜。", ans: true, icon: "🍌", tip: "香蕉成熟过程中淀粉转化为糖，表皮出现黑点是完全成熟的表现。" },
+    { q: "空腹吃柿子确实可能导致胃结石。", ans: true, icon: "🍅", tip: "柿子含大量鞣酸，空腹状态下与胃酸结合易形成鞣酸蛋白凝胶，进而形成胃柿石。" },
+    { q: "发芽的生姜可以食用，但发芽的土豆却有毒。", ans: true, icon: "🧅", tip: "生姜发芽不会产生龙葵碱，安全可食；土豆发芽则会产生龙葵碱，有毒不能吃。" },
+    { q: "长时间戴口罩不会造成缺氧。", ans: true, icon: "😷", tip: "合格口罩的透气性满足日常呼吸需求，氧气和二氧化碳可自由通过，不会缺氧。" },
+    { q: "急速冷冻的蔬菜，营养保留率可能高于常温存放的新鲜蔬菜。", ans: true, icon: "🧊", tip: "急速冷冻在极短时间内锁住营养，而新鲜蔬菜在常温下会持续流失维生素。" },
+    { q: "打哈欠会传染，与大脑中的镜像神经元有关。", ans: true, icon: "🥱", tip: "镜像神经元让我们看到别人打哈欠时会自动模拟，这是共情能力的体现。" },
+    { q: "长时间看绿色植物缓解眼疲劳，主要原因是远眺让睫状肌放松，而非颜色本身。", ans: true, icon: "🌿", tip: "看远处物体时睫状肌舒张，晶状体变薄，眼睛得以休息，绿色并无特殊护眼功效。" },
+    { q: "牙膏尾部的色标条与成分无关，仅是生产定位标记。", ans: true, icon: "🦷", tip: "彩色条是光电定位标志，用于机器封口切管，不代表化学成分或天然提取物比例。" },
+    { q: "先倒茶再加牛奶会让奶茶口感更顺滑。", ans: true, icon: "🫖", tip: "先倒茶后加牛奶，牛奶受热较慢，蛋白质变性程度不同，口感更顺滑。" },
+    { q: "身份证完全暴露在阳光下暴晒，可能导致内置芯片损坏。", ans: true, icon: "🪪", tip: "身份证内嵌芯片耐温有限，长时间暴晒会使芯片电路老化或变形，导致读取失败。" },
+    { q: "加油站使用手机确实存在理论风险。", ans: true, icon: "⛽", tip: "手机射频可能使接收天线产生微弱电火花，在油气浓度高的环境中存在理论风险。" },
+    { q: "睡觉时磨牙可能与精神压力、焦虑情绪有关。", ans: true, icon: "😬", tip: "精神紧张和焦虑是夜间磨牙的重要诱因之一，咀嚼肌会在睡眠中无意识收缩。" },
+    { q: "雷雨天在室内淋浴也有被雷击的风险。", ans: true, icon: "⚡", tip: "雷电可能通过水管传导，雷雨时使用金属管道的水龙头或淋浴，有遭到间接雷击的可能。" },
+    { q: "人的胃酸强度足以缓慢溶解刀片。", ans: true, icon: "🧪", tip: "胃酸pH值可低至1.5，强酸性能缓慢腐蚀金属，但胃黏膜可保护自身。" },
+    { q: "吃香蕉能降血压。", ans: true, icon: "🍌", tip: "香蕉富含钾元素，钾有助于排出体内多余的钠，对控制血压有辅助作用。" },
+    { q: "笑能增强免疫力。", ans: true, icon: "😄", tip: "大笑可降低皮质醇水平，增加免疫细胞活性，确实对免疫系统有正面影响。" },
+    { q: "长期睡眠不足会增加患阿尔茨海默病的风险。", ans: true, icon: "😴", tip: "睡眠期间大脑清除β-淀粉样蛋白，长期睡眠不足导致清除减少，增加患病风险。" },
+    { q: "打嗝时喝一口醋可以止嗝。", ans: true, icon: "🥤", tip: "醋的刺激性可刺激迷走神经，改变膈肌痉挛节律，对部分人确实有效。" },
+    { q: "薄荷油涂抹太阳穴可缓解头痛。", ans: true, icon: "🌿", tip: "薄荷中的薄荷醇有清凉感和局部镇痛作用，对紧张性头痛有一定缓解效果。" },
+    { q: "苹果连皮吃营养更丰富。", ans: true, icon: "🍎", tip: "苹果皮富含膳食纤维、多酚和维生素，营养价值高，但需彻底清洗去除农残。" },
+    { q: "吃芹菜能降血压。", ans: true, icon: "🥬", tip: "芹菜含芹菜素和钾，有轻度降压作用，但不能替代药物治疗。" },
+    { q: "喝酸奶能改善乳糖不耐受。", ans: true, icon: "🥛", tip: "酸奶中乳糖被部分分解，且含活性乳酸菌，乳糖不耐受者通常可以耐受适量酸奶。" },
+    { q: "黑巧克力（可可含量70%以上）有益心血管。", ans: true, icon: "🍫", tip: "黑巧克力富含黄酮类化合物，有助于改善血管弹性、轻度降低血压。" },
+    { q: "用牙线清洁牙齿可预防心脏病。", ans: true, icon: "🦷", tip: "牙周病与心血管疾病相关，使用牙线减少口腔炎症，间接降低心血管风险。" },
+    { q: "孕妇左侧卧睡姿更有利于胎儿供血。", ans: true, icon: "🤰", tip: "左侧卧减少子宫对下腔静脉的压迫，改善血液回流和胎盘供血。" },
+    { q: "发烧是身体对抗感染的防御机制。", ans: true, icon: "🌡️", tip: "适度发热可增强免疫细胞活性、抑制病原体繁殖，是身体的自我保护反应。" },
+    { q: "吃胡萝卜能改善夜盲症。", ans: true, icon: "🥕", tip: "胡萝卜富含β-胡萝卜素，在体内转化为维生素A，维生素A缺乏是夜盲症的主要原因之一。" },
+    { q: "花生衣煮水喝能升血小板。", ans: true, icon: "🥜", tip: "花生衣含多种活性成分，传统医学和部分研究认为对提升血小板有辅助作用。" },
+    { q: "长期久坐的危害相当于吸烟。", ans: true, icon: "🪑", tip: "研究显示久坐增加心血管病、糖尿病和早逝风险，其危害程度可与吸烟相提并论。" },
+    { q: "吃大蒜能预防胃癌。", ans: true, icon: "🧄", tip: "大蒜中的大蒜素等硫化物有抗菌和抗氧化作用，流行病学研究显示适量摄入可降低胃癌风险。" },
+    { q: "微波炉加热食物会产生致癌物质。", ans: false, icon: "🍱", tip: "微波加热是一种物理加热方式，本身不会产生致癌物，只有食物烧焦时才会产生有害物质。" },
+    { q: "感冒输液能让病好得更快。", ans: false, icon: "💧", tip: "输液只是给药途径之一，并不会加速痊愈，普通感冒口服药物即可。" },
+    { q: "红糖比白糖营养价值高得多，更补血。", ans: false, icon: "🍬", tip: "红糖只是未精制的蔗糖，保留少量矿物质，但与白糖差别极小，补血效果微乎其微。" },
+    { q: "手机电量耗尽再充电能延长电池寿命。", ans: false, icon: "🔋", tip: "现在的锂电池无需“深放电”，电量过低反而会损伤电池，随用随充最好。" },
+    { q: "防蓝光眼镜可以完全防止近视加深。", ans: false, icon: "👓", tip: "蓝光与近视加深之间并无直接证据，防蓝光眼镜主要缓解视疲劳。" },
+    { q: "食物掉地上5秒内捡起来还能吃。", ans: false, icon: "🍕", tip: "细菌的转移几乎瞬间发生，不存在安全时间，食物接触地面就可能被污染。" },
+    { q: "喝红酒能软化血管、预防心脏病。", ans: false, icon: "🍷", tip: "红酒中的白藜芦醇含量极低，靠喝酒获取将损害肝脏和血管，绝不推荐以酒养生。" },
+    { q: "晚上吃姜等于吃砒霜。", ans: false, icon: "🫚", tip: "姜在任何时间吃都是安全的，不存在毒性变化，这只是民间夸张说法。" },
+    { q: "反复烧开的水（千滚水）会致癌。", ans: false, icon: "♨️", tip: "反复烧开的水中亚硝酸盐含量会略微上升，但远低于安全标准，不会致癌。" },
+    { q: "白头发拔一根会长三根。", ans: false, icon: "👴", tip: "拔白发不会刺激周围毛囊长出更多白发，但会损伤毛囊，可能导致不再长头发。" },
+    { q: "吃猪蹄能补充胶原蛋白让皮肤变好。", ans: false, icon: "🐷", tip: "食物中的胶原蛋白会被消化分解为氨基酸，不一定定向补充到皮肤，而且猪蹄脂肪含量高。" },
+    { q: "仙人掌放在电脑旁能有效吸收电脑辐射。", ans: false, icon: "🌵", tip: "电脑辐射为电磁波，仙人掌没有吸收电磁辐射的特殊结构，这只是心理安慰。" },
+    { q: "骨折后一定要喝骨头汤才能加速愈合。", ans: false, icon: "🦴", tip: "骨头汤的主要成分是脂肪和少量钙，很难被人体直接利用来修复骨骼。" },
+    { q: "指甲上的月牙越多代表身体越健康。", ans: false, icon: "💅", tip: "月牙是甲母质细胞的生长痕迹，数量与大小因人而异，与整体健康没有必然联系。" },
+    { q: "用洗洁精洗水果可以彻底去除果蜡。", ans: false, icon: "🍎", tip: "洗洁精不能完全去除食用果蜡，长期残留反而有害，建议流水冲洗。" },
+    { q: "打喷嚏时只要捂住口鼻细菌就不会扩散。", ans: false, icon: "🤧", tip: "手捂嘴仍会有大量飞沫从指缝喷出，正确做法是用纸巾或肘内侧遮挡。" },
+    { q: "经常剔牙会让牙缝变大。", ans: false, icon: "🦷", tip: "牙缝变大通常是牙龈萎缩造成的，使用牙线或牙签清洁并不直接导致牙缝增宽。" },
+    { q: "运动必须超过30分钟才开始燃烧脂肪。", ans: false, icon: "🏃", tip: "从运动的第一分钟起，身体就同时消耗糖和脂肪，只是比例不同。" },
+    { q: "颜色深的酱油比颜色浅的酱油质量更好。", ans: false, icon: "🍶", tip: "酱油颜色与焦糖色添加量有关，与品质无关，酿造酱油的色泽主要来自美拉德反应。" },
+    { q: "上厕所时看手机会导致便秘。", ans: false, icon: "🚽", tip: "长时间蹲坐和注意力分散可能影响排便反射，但并非直接导致便秘的原因。" },
+    { q: "不吃晚餐减肥效果最好。", ans: false, icon: "🍽️", tip: "不吃晚餐容易造成夜间低血糖和基础代谢下降，长期会导致营养不良和反弹。" },
+    { q: "喝蜂蜜水能润肠通便，适合所有便秘。", ans: false, icon: "🍯", tip: "蜂蜜仅对果糖不耐受的人可能有轻泻作用，并非人人有效，且含糖量高。" },
+    { q: "不锈钢杯子泡茶会释放重金属。", ans: false, icon: "☕", tip: "食品级不锈钢（如304）性质稳定，短时间泡茶不会析出有害金属。" },
+    { q: "经常嚼口香糖会让脸变大。", ans: false, icon: "🍬", tip: "偶尔嚼口香糖不会显著增大咬肌，除非长期高强度咀嚼。" },
+    { q: "睡前喝牛奶一定能助眠。", ans: false, icon: "🥛", tip: "牛奶中的色氨酸很少，助眠更多是心理作用，且睡前喝大量液体可能导致夜起。" },
+    { q: "喝咖啡会导致骨质疏松。", ans: false, icon: "☕", tip: "适量咖啡对骨骼影响极小，只有长期大量饮用且钙摄入不足时才有轻微风险。" },
+    { q: "发烧时盖厚被子捂汗有助于退烧。", ans: false, icon: "🤒", tip: "捂汗会阻碍散热，可能导致体温进一步升高，尤其对儿童危险，应适当散热。" },
+    { q: "扭伤后应立即热敷。", ans: false, icon: "🦶", tip: "扭伤后48小时内应冷敷以收缩血管减少肿胀，热敷会加重出血和肿胀。" },
+    { q: "吃抗生素可以治疗病毒性感冒。", ans: false, icon: "💊", tip: "抗生素只对细菌有效，对病毒无效，滥用会导致耐药性。" },
+    { q: "孕妇吃兔肉会导致宝宝兔唇。", ans: false, icon: "🐰", tip: "兔唇是先天性发育问题，与吃兔肉毫无关系，这是民间迷信。" },
+    { q: "心脏在左边，所以左边胸痛更危险。", ans: false, icon: "❤️", tip: "心脏位于胸腔中央偏左，但右侧胸痛同样可能源于心脏问题，不能掉以轻心。" },
+    { q: "每天走一万步是最佳运动标准。", ans: false, icon: "🚶", tip: "一万步是营销概念，实际健康步数因人而异，6000-8000步已有显著健康收益。" },
+    { q: "胃会越饿越小。", ans: false, icon: "🫄", tip: "胃的大小基本固定，饥饿感变化是激素调节的结果，胃并不会物理性缩小。" },
+    { q: "喝浓茶可以解酒。", ans: false, icon: "🍵", tip: "茶碱利尿可能加重脱水，并不能加速酒精代谢，反而增加肾脏负担。" },
+    { q: "打疫苗会导致自闭症。", ans: false, icon: "💉", tip: "该说法源自已被撤回的造假论文，大量研究证实疫苗与自闭症无关。" },
+    { q: "吃味精会致癌。", ans: false, icon: "🧂", tip: "味精即谷氨酸钠，WHO将其列为最安全类别的食品添加剂，正常食用无致癌风险。" },
+    { q: "关节咔咔响会导致关节炎。", ans: false, icon: "🦴", tip: "关节响声是气泡破裂的声音，研究表明习惯性掰关节与关节炎无因果关系。" },
+    { q: "宫颈糜烂是一种严重妇科疾病。", ans: false, icon: "🏥", tip: "“宫颈糜烂”已被医学界正名为宫颈柱状上皮异位，是正常生理现象，不需治疗。" },
+    { q: "吃核桃能补脑变聪明。", ans: false, icon: "🧠", tip: "核桃含不饱和脂肪酸有益健康，但不能直接补脑提升智力，形似大脑只是巧合。" },
+    { q: "手术后不能吃酱油，否则伤口会变黑。", ans: false, icon: "🍶", tip: "伤口颜色与黑色素沉着有关，与酱油摄入无关，酱油色素不会被皮肤吸收。" },
+    { q: "静脉曲张患者不能运动。", ans: false, icon: "🦵", tip: "适度运动如散步、游泳有助于促进血液循环，反而有益，但应避免长时间站立。" },
+    { q: "吃辣会导致胃溃疡。", ans: false, icon: "🌶️", tip: "辣椒素不直接导致溃疡，幽门螺杆菌和药物才是主因，适量吃辣甚至可能保护胃黏膜。" },
+    { q: "睡前手机放床头辐射会致癌。", ans: false, icon: "📱", tip: "手机辐射为非电离辐射，能量不足以破坏DNA，无证据表明会致癌。" },
+    { q: "喝冰水会导致宫寒不孕。", ans: false, icon: "🧊", tip: "“宫寒”非现代医学概念，喝冰水不会直接影响子宫温度，人体有体温调节系统。" },
+    { q: "洋葱切开后放房间可吸附病菌。", ans: false, icon: "🧅", tip: "洋葱没有吸附病菌的能力，切开后变黑是酶促褐变，非“吸附毒素”。" },
+    { q: "烫伤后抹酱油或牙膏有效。", ans: false, icon: "🔥", tip: "酱油和牙膏不仅无效，还可能引入细菌导致感染，正确做法是冷水冲洗。" },
+    { q: "心脏搭桥手术后心脏就完全好了。", ans: false, icon: "❤️", tip: "搭桥只是绕过堵塞血管，若不改变生活方式，新血管也可能再次堵塞。" },
+    { q: "多喝热水能治百病。", ans: false, icon: "♨️", tip: "热水能舒缓某些症状但绝非万能，过度饮用可能烫伤食道。" },
+    { q: "吃生鸡蛋更营养。", ans: false, icon: "🥚", tip: "生鸡蛋含抗生物素蛋白影响吸收，且可能含沙门氏菌，熟食更安全营养。" },
+    { q: "糖尿病患者绝对不能吃水果。", ans: false, icon: "🍓", tip: "水果含纤维可延缓糖分吸收，适量低GI水果对糖尿病患者有益，关键在控制总量。" },
+    { q: "戴口罩会降低血氧饱和度。", ans: false, icon: "😷", tip: "口罩对氧气和二氧化碳通透性良好，正常佩戴不会导致血氧下降。" },
+    { q: "吃海鲜配啤酒一定会痛风。", ans: false, icon: "🍺", tip: "海鲜和啤酒嘌呤含量高，但痛风发作需多种因素叠加，不是每次搭配都会诱发。" },
+    { q: "近视手术（LASIK）后视力永久不会反弹。", ans: false, icon: "👁️", tip: "手术矫正了当前度数，但若用眼习惯不良，仍可能产生新的近视。" },
+    { q: "冰水洗脸能收缩毛孔。", ans: false, icon: "💧", tip: "冷刺激使皮肤暂时收缩，但毛孔大小主要由遗传和油脂分泌决定，冷敷效果短暂不持久。" },
+
+    // ===== 食品安全（约50题） =====
+    { q: "煮熟的鸡蛋用冷水泡一下更好剥壳。", ans: true, icon: "🥚", tip: "鸡蛋遇冷收缩，蛋白与蛋壳膜分离，更容易剥落。" },
+    { q: "口香糖粘在衣服上用冰箱冷冻后更容易去除。", ans: true, icon: "🍬", tip: "口香糖遇冷变硬变脆，冷冻后轻轻刮除比直接撕扯更干净。" },
+    { q: "可乐的酸性成分可以帮助清洁马桶内的碱性污渍。", ans: true, icon: "🥤", tip: "可乐含磷酸和碳酸，酸性可以溶解尿碱等碱性污垢，但清洁力不如专业洁厕剂。" },
+    { q: "蜂蜜永远不会变质。", ans: true, icon: "🍯", tip: "蜂蜜含水量极低且含过氧化氢等抑菌物质，密封保存可千年不腐。" },
+    { q: "生吃三文鱼前必须冷冻处理。", ans: true, icon: "🐟", tip: "FDA建议生食鱼类需在-20℃以下冷冻7天或-35℃冷冻15小时以杀死寄生虫。" },
+    { q: "发芽的花生会产生黄曲霉毒素。", ans: true, icon: "🥜", tip: "花生发芽过程中若受潮霉变，可能产生强致癌物黄曲霉毒素。" },
+    { q: "含有反式脂肪酸的食品一定有害。", ans: true, icon: "🧈", tip: "工业反式脂肪酸增加心血管疾病风险，但天然存在的反式脂肪酸风险较低。" },
+    { q: "用铝锅煮酸味食物会溶出铝元素。", ans: true, icon: "🍲", tip: "酸性食物会加速铝的溶出，长期摄入铝可能影响神经系统，建议用不锈钢锅。" },
+    { q: "隔夜泡发的木耳可能产生致命毒素。", ans: true, icon: "🪵", tip: "木耳长时间浸泡可能滋生椰毒假单胞菌，产生致命的米酵菌酸。" },
+    { q: "罐头食品鼓起说明已变质。", ans: true, icon: "🥫", tip: "鼓罐是因细菌产气导致，内部可能已腐败并产生毒素，绝对不能食用。" },
+    { q: "吃荔枝会被测出酒驾。", ans: true, icon: "🫐", tip: "荔枝含糖量高，在口腔中可能被微生物发酵产生微量酒精，导致吹气检测阳性。" },
+    { q: "用热水泡柠檬会破坏维生素C。", ans: true, icon: "🍋", tip: "维生素C不耐高温，60℃以上开始分解，但温热水短时间泡损失有限。" },
+    { q: "吃火锅喝冷饮会导致食道破裂。", ans: true, icon: "🍲", tip: "极端冷热交替可能刺激食道，虽罕见但确实有导致食道壁损伤的案例报告。" },
+    { q: "用盐水泡水果可以去除农药。", ans: true, icon: "🧂", tip: "盐水对部分农药有溶解作用，但效果有限，流水冲洗+搓洗更有效。" },
+    { q: "食品添加剂都是有害的。", ans: false, icon: "🧪", tip: "合法合规的食品添加剂经过安全评估，在标准范围内使用是安全的。" },
+    { q: "过期一天的食品绝对不能吃了。", ans: false, icon: "📅", tip: "保质期是品质保证期，过期一天不一定变质，需根据食品类型和储存条件判断。" },
+    { q: "用银针可以试出食物是否含毒。", ans: false, icon: "🥢", tip: "银针只能与某些硫化物反应变黑，无法检测多数现代毒物，这是影视剧误导。" },
+    { q: "转基因食品会导致人体基因改变。", ans: false, icon: "🧬", tip: "食物中的DNA经消化分解为核苷酸，不会整合到人体基因中，无科学依据证明有害。" },
+    { q: "鸡蛋表面有斑点说明是坏蛋。", ans: false, icon: "🥚", tip: "蛋壳斑点由色素沉着或钙质分布不均造成，与鸡蛋品质无关。" },
+    { q: "速冻饺子的肉馅都是淋巴肉。", ans: false, icon: "🥟", tip: "正规品牌使用检验合格猪肉，淋巴肉说法源于个别黑心作坊，不能以偏概全。" },
+    { q: "微波炉加热的食品会产生辐射残留。", ans: false, icon: "📡", tip: "微波是非电离辐射，停止后即消失，不会残留在食物中。" },
+    { q: "水果发霉切掉坏的部分还能吃。", ans: false, icon: "🍎", tip: "霉菌菌丝可能已深入果实内部，肉眼不可见，且可能产生扩散的真菌毒素。" },
+    { q: "冰箱冷冻室是食物的保险箱永不坏。", ans: false, icon: "❄️", tip: "冷冻只能抑制细菌生长不能杀死，长时间冷冻也会导致品质下降和脂肪氧化。" },
+    { q: "食品包装上的营养标签数据完全准确。", ans: false, icon: "🏷️", tip: "国标允许一定误差范围（通常±20%），标签数据是近似值而非精确值。" },
+    { q: "吃皮蛋导致铅中毒。", ans: false, icon: "🥚", tip: "现代皮蛋采用无铅工艺，使用硫酸铜或硫酸锌替代氧化铅，合格皮蛋不含铅。" },
+    { q: "番茄酱是蔬菜。", ans: false, icon: "🍅", tip: "番茄酱含大量添加糖，营养学上更接近调味品。" },
+    { q: "白醋和小苏打混合能清洁一切。", ans: false, icon: "🧹", tip: "两者混合产生二氧化碳和水，中和后清洁力大减，单独使用反而更有效。" },
+    { q: "所有标“零卡”的饮料真的零热量。", ans: false, icon: "🥤", tip: "FDA规定每份低于5卡可标零卡，零卡饮料可能含极少量热量。" },
+    { q: "吃榴莲不能同时喝酒。", ans: true, icon: "🫒", tip: "榴莲含硫化合物抑制乙醛脱氢酶，与酒同食可能加重酒精代谢负担，引起不适。" },
+    { q: "所有蘑菇都可以通过颜色判断是否有毒。", ans: false, icon: "🍄", tip: "没有通用的颜色规则，白毒伞等剧毒蘑菇颜色朴素，鲜艳的牛肝菌有些可食。" },
+
+    // ===== 科技数码（约60题） =====
+    { q: "手机信号越弱，辐射越小。", ans: false, icon: "📶", tip: "信号弱时手机会增大发射功率来维持连接，辐射反而更大，信号满格时辐射最小。" },
+    { q: "充电器插在插座上但不连接设备时，完全不耗电。", ans: false, icon: "🔌", tip: "充电器空载仍有待机功耗，虽然极小，但长期不拔也会消耗电能并可能发热老化。" },
+    { q: "纯天然护肤品就一定不会引起过敏。", ans: false, icon: "🧴", tip: "天然成分如花粉、精油也可能成为过敏原，敏感肌使用前仍需做皮肤测试。" },
+    { q: "手机放进微波炉里加热可以充电。", ans: false, icon: "📱", tip: "手机放进微波炉会立刻损坏并可能爆炸起火，这是极其危险的行为。" },
+    { q: "智能手机长时间不关机，运行速度并不会明显变慢。", ans: true, icon: "📱", tip: "现代手机系统会自动管理后台和缓存，定期重启更多是清理临时故障。" },
+    { q: "手机屏幕分辨率超过人眼识别极限就没有意义了。", ans: true, icon: "📱", tip: "人眼在正常距离下约能分辨300-400PPI，超过此密度肉眼确实难以区分差异。" },
+    { q: "WiFi信号对人体有辐射危害。", ans: false, icon: "📶", tip: "WiFi辐射功率远低于安全标准（约100毫瓦），且为非电离辐射，无证据表明有害。" },
+    { q: "特斯拉发明了交流电并免费提供给人类。", ans: false, icon: "⚡", tip: "特斯拉推广了交流电但并非唯一发明者，也未“免费提供”，他持有相关专利。" },
+    { q: "手机进水后放大米里可以修复。", ans: false, icon: "🍚", tip: "大米吸湿效率低且有粉尘进入风险，正确做法是关机后送专业干燥处理。" },
+    { q: "一直插着充电器会损坏手机电池。", ans: false, icon: "🔋", tip: "智能手机有过充保护电路，充满后自动停止充电，长期插着基本不影响电池寿命。" },
+    { q: "关闭后台应用可显著提升手机流畅度。", ans: false, icon: "📱", tip: "iOS和现代Android系统自动管理后台，频繁关闭反而增加重启耗电。" },
+    { q: "电子墨水屏比LCD屏更护眼。", ans: true, icon: "📖", tip: "电子墨水屏本身不发光，靠反射环境光显示，减少了蓝光和频闪对眼的刺激。" },
+    { q: "无线充电比有线充电更伤电池。", ans: false, icon: "🔋", tip: "无线充电发热稍多但现代温控技术已能有效管理，对电池寿命影响与有线相当。" },
+    { q: "谷歌Chrome浏览器最耗内存。", ans: true, icon: "💾", tip: "Chrome每个标签页独立进程，内存占用确实较高，但换来了稳定性和安全性。" },
+    { q: "人脸识别比指纹识别更安全。", ans: false, icon: "👤", tip: "两者各有优劣，3D结构光人脸识别安全性高，但2D照片可能被破解。" },
+    { q: "网上流传的“免费WiFi”都是安全的。", ans: false, icon: "📡", tip: "公共WiFi可能被黑客设置成钓鱼热点，窃取用户信息，连接前需确认来源。" },
+    { q: "固态硬盘（SSD）比机械硬盘更适合长期冷存储。", ans: false, icon: "💿", tip: "SSD长时间不通电可能丢失数据，机械硬盘和磁带更适合长期离线存储。" },
+    { q: "所有USB-C接口都支持雷电协议。", ans: false, icon: "🔌", tip: "USB-C是物理接口形态，雷电协议需额外芯片支持，外观相同但功能差异很大。" },
+    { q: "人工智能已经具备自我意识。", ans: false, icon: "🤖", tip: "当前AI是基于统计模型的大语言模型，没有真正的自我意识和情感。" },
+    { q: "蓝牙耳机长时间佩戴会损伤大脑。", ans: false, icon: "🎧", tip: "蓝牙辐射功率极低（约2.5毫瓦），远低于手机，无证据表明会对大脑造成损伤。" },
+    { q: "金属机身手机比塑料机身信号差。", ans: true, icon: "📱", tip: "金属会屏蔽电磁波，金属机身需设计天线带以保证信号，塑料机身无此问题。" },
+    { q: "晚上关灯看手机屏幕会致盲。", ans: false, icon: "📱", tip: "黑暗中看屏幕可能引起视疲劳和干眼，但不会直接致盲，不过长期可能加速黄斑病变。" },
+    { q: "所有智能音箱都在持续录音上传。", ans: false, icon: "🎙️", tip: "智能音箱本地监听唤醒词，检测到后才上传云端处理，非持续录音上传。" },
+    { q: "用酒精擦拭手机屏幕会损坏疏油层。", ans: true, icon: "🧴", tip: "高浓度酒精频繁擦拭会加速疏油层磨损，建议使用专用屏幕清洁剂或微湿布。" },
+    { q: "手机充到100%比充到80%更好。", ans: false, icon: "🔋", tip: "锂电池保持在20%-80%区间寿命最长，长期满充会加速老化。" },
+    { q: "WiFi密码可以用二维码分享。", ans: true, icon: "📶", tip: "手机可生成包含WiFi名称和密码的二维码，扫描后自动连接，非常方便。" },
+    { q: "5G信号会传播新冠病毒。", ans: false, icon: "📡", tip: "病毒通过飞沫传播，5G是电磁波，完全不同的物理实体，这是荒谬的阴谋论。" },
+    { q: "手机充电时打电话会爆炸。", ans: false, icon: "🔌", tip: "现代手机有过充保护和温控，原装充电器下同时充电通话不会爆炸，但会发热。" },
+    { q: "Mac电脑不会中病毒。", ans: false, icon: "💻", tip: "Mac同样会感染恶意软件，只是因其市场份额较小，攻击者相对较少关注。" },
+    { q: "比特币交易完全匿名。", ans: false, icon: "₿", tip: "比特币交易记录公开在区块链上，虽不直接关联身份但可通过技术手段追踪。" },
+    { q: "清除浏览器历史记录就完全删除了上网痕迹。", ans: false, icon: "🌐", tip: "清除历史只删除本地记录，ISP、网站服务器和搜索引擎仍可能有你的数据。" },
+
+    // ===== 自然动物（约60题） =====
+    { q: "蝙蝠是唯一会飞的哺乳动物。", ans: true, icon: "🦇", tip: "蝙蝠是哺乳动物中唯一真正具备飞行能力的，鼯鼠等只能滑翔。" },
+    { q: "公企鹅会孵蛋。", ans: true, icon: "🐧", tip: "帝企鹅等品种由雄性企鹅负责孵蛋，在严寒中站立约65天不吃不喝孵化后代。" },
+    { q: "鲨鱼不会得癌症。", ans: false, icon: "🦈", tip: "鲨鱼也会患癌症，已记录多种鲨鱼肿瘤病例，这个说法是保健品营销谣言。" },
+    { q: "骆驼的驼峰里储存的是水。", ans: false, icon: "🐫", tip: "驼峰储存的是脂肪而非水，代谢脂肪可产生水和能量，帮助骆驼在沙漠中生存。" },
+    { q: "长颈鹿的脖子骨头比人类多。", ans: false, icon: "🦒", tip: "长颈鹿颈骨数量和人类一样都是7块，只是每块骨头长度远超人类。" },
+    { q: "树懒每周只下树排便一次。", ans: true, icon: "🦥", tip: "树懒约每周下树一次排便，这是它们最脆弱的时刻，许多树懒在此时被捕食。" },
+    { q: "蜜蜂蜇人后会死亡。", ans: true, icon: "🐝", tip: "工蜂的蜇针带有倒钩，蜇入哺乳动物皮肤后无法拔出，脱离身体后导致蜜蜂死亡。" },
+    { q: "珊瑚是植物。", ans: false, icon: "🪸", tip: "珊瑚是珊瑚虫（动物）分泌的碳酸钙骨架，属于刺胞动物门，是动物而非植物。" },
+    { q: "海豚从来不睡觉。", ans: false, icon: "🐬", tip: "海豚采用单半球睡眠，大脑一半休息一半保持清醒以维持游泳和呼吸，并非不睡觉。" },
+    { q: "大象是唯一不会跳跃的哺乳动物。", ans: false, icon: "🐘", tip: "大象确实不会跳跃（因体重和骨骼结构），但并非唯一，河马、犀牛等也不会跳跃。" },
+    { q: "番茄最初被欧洲人认为有毒。", ans: true, icon: "🍅", tip: "16世纪欧洲贵族用含铅锡盘盛番茄，酸性番茄汁溶解铅导致中毒，归咎于番茄本身。" },
+    { q: "鸮鹦鹉是唯一不会飞的鹦鹉。", ans: true, icon: "🦜", tip: "新西兰的鸮鹦鹉是世界上最重的鹦鹉，翅膀退化无法飞行，且是夜行性动物。" },
+    { q: "狼群中有严格的阿尔法领袖制度。", ans: false, icon: "🐺", tip: "野生狼群通常由一对繁殖配偶领导，更像家庭而非暴力争夺的等级制度。" },
+    { q: "金鱼的记忆不止3秒。", ans: true, icon: "🐠", tip: "研究表明金鱼记忆可达数月，能学会按杠杆获取食物，记忆远超3秒。" },
+    { q: "蚊子更偏爱O型血的人。", ans: true, icon: "🦟", tip: "研究显示O型血的人被蚊子叮咬概率略高于其他血型，但体味、体温等因素更重要。" },
+    { q: "斑马的条纹有助于防蚊虫叮咬。", ans: true, icon: "🦓", tip: "实验表明斑马条纹能干扰昆虫的视觉定位，减少马蝇等叮咬。" },
+    { q: "所有蛇都是冷血动物。", ans: true, icon: "🐍", tip: "蛇是变温动物（传统称冷血），依赖外部热源调节体温，但部分蛇能在肌肉活动时产生热量。" },
+    { q: "熊猫只吃竹子。", ans: false, icon: "🐼", tip: "大熊猫主要以竹子为食（99%），但偶尔也吃小型动物和腐肉，消化系统仍是食肉动物特征。" },
+    { q: "螳螂交配后雌性一定会吃掉雄性。", ans: false, icon: "🦗", tip: "只在约30%的螳螂种类中观察到性食同类，且多在实验室条件下，野外发生率更低。" },
+    { q: "章鱼有三个心脏，血液是蓝色的。", ans: true, icon: "🐙", tip: "章鱼有1个主心脏和2个鳃心脏，血液含血蓝蛋白而非血红蛋白，因此呈蓝色。" },
+    { q: "蜘蛛不是昆虫，而是属于蛛形纲。", ans: true, icon: "🕷️", tip: "昆虫有6条腿，蜘蛛有8条腿，分类学上属于不同的纲，这是生物学常识。" },
+    { q: "鱼的记忆只有7秒。", ans: false, icon: "🐠", tip: "实验证明鱼类记忆可持续数月，能够识别主人和进行训练。" },
+    { q: "鸵鸟遇到危险会把头埋进沙子。", ans: false, icon: "🐦", tip: "鸵鸟会低头贴近地面以伪装，并非真正把头埋进沙里，这是误解。" },
+    { q: "北极熊的皮肤是黑色的，而它的毛是透明中空的。", ans: true, icon: "🐻‍❄️", tip: "北极熊的皮肤呈黑色以吸收热量，毛是中空的管状结构，通过反射光线看起来是白色。" },
+    { q: "人体内的铁元素总重量大约足够打造一枚小铁钉。", ans: true, icon: "🔩", tip: "成年人体内约含4克铁，刚好可以制成一枚2-3厘米长的铁钉。" },
+    { q: "电视雪花屏上的一部分噪点来自宇宙大爆炸的余晖。", ans: true, icon: "📺", tip: "早期模拟电视的雪花屏中，约1%的噪点来自宇宙微波背景辐射。" },
+    { q: "冰岛没有蚊子。", ans: true, icon: "🦟", tip: "冰岛因气候寒冷且缺乏适合蚊子繁殖的稳定水体，确实没有蚊子。" },
+    { q: "萤火虫的光是冷光。", ans: true, icon: "🪲", tip: "萤火虫生物发光效率极高，约95%能量转化为光，几乎不产生热量，是真正的冷光源。" },
+
+    // ===== 生活常识（约50题） =====
+    { q: "用柠檬汁可以写出隐形字迹，加热后显现。", ans: true, icon: "🍋", tip: "柠檬汁含有有机物，加热后碳化变成棕色，是一种经典的隐形墨水。" },
+    { q: "香蕉皮内侧可以用来擦拭皮鞋，能让皮鞋更光亮。", ans: true, icon: "🍌", tip: "香蕉皮含天然油脂和钾，能起到清洁和上光作用，是应急擦鞋小妙招。" },
+    { q: "啤酒瓶盖的锯齿数量是21个，是全球统一标准。", ans: true, icon: "🍺", tip: "21个锯齿经过工程学优化，既能保证密封性，又便于开启，已成为国际通用标准。" },
+    { q: "用热水洗血迹更容易洗干净。", ans: false, icon: "🩸", tip: "血液中的蛋白质遇热会凝固，更难清洗，应用冷水冲洗血迹。" },
+    { q: "新买的充电宝前三次需充满12小时激活。", ans: false, icon: "🔋", tip: "这是镍氢电池时代的做法，现代锂电池出厂已激活，无需长时间充电。" },
+    { q: "空调温度调得越低越费电。", ans: true, icon: "❄️", tip: "设定温度与室外温差越大，空调压缩机工作时间越长，耗电量确实越大。" },
+    { q: "汽车空调比开车窗更费油。", ans: false, icon: "🚗", tip: "高速行驶时开窗增加风阻，比开空调更费油；低速时开窗更省油，需视情况而定。" },
+    { q: "橡胶手套可以防止静电。", ans: true, icon: "🧤", tip: "橡胶是绝缘体，穿戴橡胶手套可隔绝静电传导，冬天脱毛衣前戴手套可防电击。" },
+    { q: "马桶冲水时盖上盖子可减少细菌扩散。", ans: true, icon: "🚽", tip: "冲水会产生气溶胶羽流，盖上马桶盖可显著减少细菌和病毒扩散到空气中。" },
+    { q: "用微波炉加热带壳鸡蛋会爆炸。", ans: true, icon: "🥚", tip: "微波加热使鸡蛋内部快速升温产生蒸汽，蛋壳阻挡膨胀导致爆炸。" },
+    { q: "香蕉能催熟其他水果。", ans: true, icon: "🍌", tip: "香蕉释放乙烯气体，可加速周围水果成熟，将未熟水果与香蕉放一起可催熟。" },
+    { q: "不锈钢锅烧干后加水会变形。", ans: true, icon: "🍳", tip: "干烧后锅体温度极高，骤加冷水因热胀冷缩不均可能导致锅底变形。" },
+    { q: "咖啡渣可以用来除冰箱异味。", ans: true, icon: "☕", tip: "干燥咖啡渣有吸附异味的能力，类似活性炭，是天然的除味剂。" },
+    { q: "保鲜膜不能直接接触含油食物加热。", ans: true, icon: "📦", tip: "部分保鲜膜（PE材质）不耐高温且可能被油脂溶出塑化剂，加热需用耐热材质。" },
+    { q: "羊毛衫用热水洗会缩水。", ans: true, icon: "👚", tip: "羊毛纤维表面有鳞片，热水和搅拌使鳞片相互锁紧，导致毡化收缩。" },
+    { q: "白鞋发黄用牙膏刷可以变白。", ans: true, icon: "👟", tip: "牙膏含研磨剂和美白成分，对帆布鞋等材质有轻度漂白和清洁效果。" },
+    { q: "快递单上的字迹可用花露水擦掉。", ans: true, icon: "📦", tip: "花露水含酒精等有机溶剂，能溶解快递单的热敏涂层字迹，保护隐私。" },
+    { q: "在高原地区煮鸡蛋不容易熟。", ans: true, icon: "🏔️", tip: "高海拔气压低，水的沸点降低（如海拔4000米沸点约87℃），需要更长时间煮熟。" },
+    { q: "荧光笔写的字在紫外灯下会发光。", ans: true, icon: "🖊️", tip: "荧光笔含荧光染料，吸收紫外线后发出可见光，在UV灯下格外明亮。" },
+    { q: "用锡纸包着门把手可以防静电。", ans: false, icon: "🚪", tip: "锡纸导电，接触门把手前用金属物（如钥匙）先放电更有效。" },
+    { q: "微波炉加热整个葡萄可能产生等离子火花。", ans: true, icon: "🍇", tip: "葡萄大小恰好能聚焦微波，两颗接触时会在接触点产生强电磁场，电离空气形成等离子体。" },
+
+    // ===== 人体奥秘（约40题） =====
+    { q: "人体骨骼数量会随着年龄增长而减少。", ans: true, icon: "🦴", tip: "婴儿约有300块骨骼，成年后许多骨骼融合，最终约206块。" },
+    { q: "舌头上有不同的味觉分区。", ans: false, icon: "👅", tip: "舌头的所有区域都能感知各种味道，味觉分区图是早期研究的误读。" },
+    { q: "人在太空会长高。", ans: true, icon: "🚀", tip: "微重力下脊椎间盘不再受压缩，宇航员身高可暂时增加3-5厘米。" },
+    { q: "人类和香蕉有50%的DNA相似。", ans: true, icon: "🍌", tip: "所有生物共享基础基因，人类与香蕉确有约50%的基因序列相似。" },
+    { q: "指纹是独一无二的。", ans: true, icon: "👆", tip: "同卵双胞胎的指纹也不相同，指纹由基因和环境因素共同决定，具有唯一性。" },
+    { q: "人的鼻子能记住50000种气味。", ans: true, icon: "👃", tip: "研究估计人类可以分辨约1万亿种嗅觉刺激组合，远超过50000种。" },
+    { q: "人体最硬的部位是牙齿的牙釉质。", ans: true, icon: "🦷", tip: "牙釉质含96%羟基磷灰石，是人体最坚硬的生物材料，但磨损后无法再生。" },
+    { q: "人的睫毛有固定的生长周期。", ans: true, icon: "👁️", tip: "睫毛生长期约30-45天，之后进入退行期和休止期，自然脱落更新。" },
+    { q: "人可以睁着眼睛打喷嚏。", ans: false, icon: "🤧", tip: "打喷嚏时眼轮匝肌不自主收缩导致闭眼，强行睁眼可能导致眼部血管破裂。" },
+    { q: "男性的喉结越大嗓音越低。", ans: true, icon: "🗣️", tip: "喉结是甲状软骨前突，受雄激素影响增大，声带随之变长变厚，声音更低沉。" },
+    { q: "人在紧张时瞳孔会放大。", ans: true, icon: "👁️", tip: "紧张时交感神经兴奋，瞳孔开大肌收缩导致瞳孔放大，这是“战或逃”反应的一部分。" },
+    { q: "人体最长的肌肉是缝匠肌。", ans: true, icon: "🦵", tip: "缝匠肌从髋骨延伸到胫骨上端，是人体最长的肌肉，负责大腿的屈曲和外旋。" },
+    { q: "大脑没有痛觉感受器。", ans: true, icon: "🧠", tip: "脑实质本身没有痛觉神经，头痛感来自脑膜、血管等周围结构的痛觉感受器。" },
+    { q: "人死后头发和指甲还会继续生长。", ans: false, icon: "💀", tip: "死后皮肤脱水收缩，显得毛发和指甲变长，并非真正生长。" },
+    { q: "人类大脑只开发了10%。", ans: false, icon: "🧠", tip: "脑成像显示几乎每个区域都在活跃，我们使用大脑的各个部分，并非只用了10%。" },
+
+    // ===== 心理认知（约20题） =====
+    { q: "人类是多任务处理的。", ans: false, icon: "🧠", tip: "大脑实际上在任务间快速切换而非同时处理，多任务降低效率和准确性。" },
+    { q: "潜意识广告可以有效改变购买行为。", ans: false, icon: "📺", tip: "潜意识广告效果被夸大，研究显示其对消费行为的直接影响微乎其微。" },
+    { q: "听莫扎特音乐能让婴儿变聪明。", ans: false, icon: "🎵", tip: "莫扎特效应仅显示短暂的空间推理提升，且只在成年人身上观察到，不能提高长期智力。" },
+    { q: "味觉会随着年龄增长而衰退。", ans: true, icon: "👅", tip: "味蕾数量随年龄减少，60岁后味觉敏感度明显下降，对咸甜感知减弱更显著。" },
+    { q: "颜色能影响人的食欲。", ans: true, icon: "🎨", tip: "红色和黄色被认为最能刺激食欲，蓝色则抑制食欲，许多快餐品牌利用了这一原理。" },
+    { q: "第一印象在7秒内形成。", ans: true, icon: "⏱️", tip: "研究表明人们在见到陌生人的7秒内就会形成初步印象，且这种印象很难改变。" },
+    { q: "人的记忆像录像机一样精确。", ans: false, icon: "📹", tip: "记忆是可塑的，每次回忆都在重构，容易受到暗示和偏见影响，并非精确记录。" },
+    { q: "测谎仪能准确检测谎言。", ans: false, icon: "🕵️", tip: "测谎仪测量生理指标，但焦虑或紧张者可能被误判，准确性不足以作为法庭证据。" },
+    { q: "打喷嚏时人的眼睛会自动闭上。", ans: true, icon: "🤧", tip: "打喷嚏时眼轮匝肌自发收缩使眼睛闭合，这是身体的保护反射。" },
+
+    // ===== 物理化学（约30题） =====
+    { q: "在太空中没有重力。", ans: false, icon: "🛰️", tip: "太空中存在微重力，地球引力仍作用于轨道飞行器，宇航员感到失重是因自由落体状态。" },
+    { q: "水是电的良导体。", ans: false, icon: "💧", tip: "纯水是电的不良导体，通常自来水导电是因为其中溶解的矿物质离子。" },
+    { q: "玻璃是液体。", ans: false, icon: "🪟", tip: "玻璃是过冷固体（非晶态固体），古老教堂玻璃底部较厚是因制造工艺不匀，非“流动”所致。" },
+    { q: "黑色衣服比白色衣服更吸热。", ans: true, icon: "👕", tip: "黑色吸收大部分可见光和红外线，白色反射更多辐射，所以夏天穿白色更凉爽。" },
+    { q: "声音在真空中无法传播。", ans: true, icon: "🔊", tip: "声波需要介质传播，真空中没有分子振动，声音完全无法传递。" },
+    { q: "热水比冷水结冰更快。", ans: true, icon: "🧊", tip: "姆潘巴效应——在某些条件下热水可能比冷水更快结冰，但原因仍有争议。" },
+    { q: "光的速度是宇宙中最快的。", ans: true, icon: "💡", tip: "真空中光速约为30万公里/秒，目前已知没有任何物质或信息能超过此速度。" },
+    { q: "雷达是利用声波探测物体的。", ans: false, icon: "📡", tip: "雷达使用无线电波（电磁波），声呐才使用声波，两者原理不同。" },
+    { q: "钻石在极强激光照射下会直接升华变成气体。", ans: true, icon: "💎", tip: "钻石由碳元素构成，在极高温度下可跳过液态直接升华，但需要高能激光。" },
+    { q: "地球是太阳系中唯一有板块构造的行星。", ans: true, icon: "🌍", tip: "目前已知地球是太阳系中唯一拥有活跃板块构造的行星，其他天体或有冰壳运动。" },
+    { q: "流星和陨石是同一个东西。", ans: false, icon: "☄️", tip: "流星是进入大气层燃烧的现象，陨石是落到地面的残留天体，一个在天上一个在地上。" },
+    { q: "彗星的尾巴总是背向太阳。", ans: true, icon: "☄️", tip: "彗星的离子尾受太阳风吹拂，总是背向太阳方向，无论彗星运行方向如何。" },
+    { q: "人类每年吞下的蜘蛛数量平均为8只。", ans: false, icon: "🕷️", tip: "这是完全虚构的都市传说，人在睡眠中吞下蜘蛛的概率极低。" },
+    { q: "地球内核是液态的。", ans: false, icon: "🌍", tip: "地球内核是固态铁镍合金，外核才是液态，这是地震波研究得出的结论。" },
+
+    // ===== 历史地理（约40题） =====
+    { q: "拿破仑被流放到圣赫勒拿岛后死于砒霜中毒。", ans: false, icon: "👑", tip: "虽然拿破仑头发含砷量高，但现代研究认为他更可能死于胃癌，砒霜说缺乏决定性证据。" },
+    { q: "埃及金字塔是奴隶建造的。", ans: false, icon: "🔺", tip: "考古证据显示金字塔由受薪工人建造，他们有专业技术和良好待遇，并非奴隶。" },
+    { q: "长城是唯一能从太空看到的人造建筑。", ans: false, icon: "🏯", tip: "从低轨道肉眼难以看到长城，但可看到城市灯光、大型机场和水库等。" },
+    { q: "爱因斯坦数学成绩很差。", ans: false, icon: "🧑‍🔬", tip: "爱因斯坦数学成绩优异，15岁已掌握微积分，这个谣言源于对他成绩单评分体系的误解。" },
+    { q: "哥伦布发现了美洲大陆。", ans: false, icon: "⛵", tip: "美洲早有原住民居住，维京人莱夫·埃里克松比哥伦布早约500年到达北美。" },
+    { q: "铁达尼号被称为“永不沉没的船”。", ans: false, icon: "🚢", tip: "船运公司从未官方声称其“永不沉没”，这是媒体在灾难后创造的说法。" },
+    { q: "梵高一生只卖出一幅画。", ans: false, icon: "🎨", tip: "梵高生前卖出的画不止一幅，他卖出多幅作品并接受过佣金创作，但确实生前未获广泛认可。" },
+    { q: "拿破仑是个矮个子。", ans: false, icon: "👑", tip: "拿破仑身高约168-170厘米，在当时法国属于平均身高，矮小形象是英国宣传漫画的产物。" },
+    { q: "白宫是因为被烧过才涂成白色。", ans: false, icon: "🏛️", tip: "白宫在1798年建成时就涂成白色，虽在1812年战争中被烧后重涂，但名字在此之前已使用。" },
+    { q: "尼斯湖水怪有可靠照片证据。", ans: false, icon: "🦕", tip: "最著名的尼斯湖水怪照片在1994年被证实是伪造的，至今无确凿证据证明其存在。" },
+    { q: "亚马逊雨林是地球之肺提供20%氧气。", ans: false, icon: "🌳", tip: "亚马逊雨林产生的氧气大部分被自身生态系统消耗，海洋浮游植物才是主要氧气来源。" },
+    { q: "爱迪生发明了电灯泡。", ans: false, icon: "💡", tip: "爱迪生改良了电灯泡使其商业化，但最早的电灯泡由汉弗莱·戴维和约瑟夫·斯旺等人发明。" },
+    { q: "铁达尼号沉没是因为撞上冰山。", ans: true, icon: "🧊", tip: "铁达尼号确实因撞击冰山导致船体破裂进水而沉没，但铆钉质量等也是加速沉没的因素。" },
+    { q: "冥王星在2006年被降级为矮行星。", ans: true, icon: "🪐", tip: "国际天文学联合会重新定义行星标准，冥王星因未能清空轨道周围区域而被降级。" },
+    { q: "珠穆朗玛峰是地球上最高的山。", ans: true, icon: "🏔️", tip: "从海平面测量珠峰最高（8848米），但从海底基座算莫纳克亚山更高。" },
+    { q: "南极洲有城市。", ans: false, icon: "🇦🇶", tip: "南极洲无常住居民和城市，只有科考站，是地球上唯一没有国家的大陆。" },
+    { q: "中国万里长城连续不断。", ans: false, icon: "🏯", tip: "长城由多段城墙组成，并非一道连续墙体，而是由不同朝代修建的防御工事总称。" },
+    { q: "撒哈拉沙漠是地球上最大的沙漠。", ans: false, icon: "🏜️", tip: "南极洲是地球上最大的沙漠，沙漠定义是降水量而非温度，南极内陆年降水极低。" },
+    { q: "法国的国鸟是公鸡。", ans: true, icon: "🐓", tip: "公鸡（高卢雄鸡）是法国的象征，出现在法国国家队队徽和许多官方标志上。" },
+    { q: "引力波是爱因斯坦预言的存在。", ans: true, icon: "🌊", tip: "爱因斯坦在1916年基于广义相对论预言引力波存在，2015年被LIGO首次探测证实。" },
+    { q: "DNA双螺旋结构由沃森和克里克独家发现。", ans: false, icon: "🧬", tip: "罗莎琳德·富兰克林的X射线衍射照片对发现双螺旋结构至关重要，但未获应有认可。" },
+    { q: "月球正在逐渐远离地球。", ans: true, icon: "🌙", tip: "月球以每年约3.8厘米的速度远离地球，这是潮汐力相互作用的结果。" },
+    { q: "太阳绕银河系中心转一圈约需2.5亿年。", ans: true, icon: "☀️", tip: "太阳系的公转周期约2.25-2.5亿年，上次太阳在当前位置时恐龙刚出现。" },
+    { q: "闪电不会两次击中同一个地方。", ans: false, icon: "⚡", tip: "闪电经常重复击中同一高处建筑，帝国大厦每年被闪电击中约25次。" },
+    { q: "火山喷发可以暂时降低全球气温。", ans: true, icon: "🌋", tip: "大型火山喷发将二氧化硫喷射到平流层形成气溶胶，反射阳光导致短期全球降温。" },
+    { q: "珠峰每年都在变高。", ans: true, icon: "🏔️", tip: "印度板块持续挤压欧亚板块，喜马拉雅山脉仍在抬升，珠峰每年约升高4毫米。" },
+    { q: "百慕大三角的失踪率高于其他海域。", ans: false, icon: "🔺", tip: "百慕大三角海域交通繁忙，按比例计算的失踪率并不显著高于其他海域。" },
+    { q: "月球有一面永远背向地球。", ans: true, icon: "🌑", tip: "月球被潮汐锁定，自转周期等于公转周期，因此始终以同一面朝向地球。" },
+
+    // ===== 法律法规（约20题） =====
+    { q: "网购商品七天无理由退货适用于所有商品。", ans: false, icon: "📦", tip: "鲜活易腐商品、定制商品、在线下载的数字化商品等不适用七天无理由退货。" },
+    { q: "警察办案时必须出示警官证。", ans: true, icon: "👮", tip: "《人民警察法》规定警察执法时应出示证件，但紧急情况下可先执法后说明身份。" },
+    { q: "拾到遗失物可以要求报酬。", ans: false, icon: "💍", tip: "法律未规定拾得人有权索要报酬，但可要求失主支付必要的保管费用。" },
+    { q: "在朋友圈发布广告不受法律约束。", ans: false, icon: "📱", tip: "朋友圈广告同样受《广告法》规制，虚假宣传需承担法律责任。" },
+    { q: "18岁以下犯罪一律不负刑事责任。", ans: false, icon: "⚖️", tip: "中国法律规定，已满16周岁应负刑责，12-14周岁对故意杀人等重罪也需负责。" },
+
+    // ===== 环保（约15题） =====
+    { q: "生物可降解塑料在任何环境都能快速降解。", ans: false, icon: "🧴", tip: "多数可降解塑料需在特定工业堆肥条件下才能降解，在海洋或土壤中降解极慢。" },
+    { q: "电动汽车零排放。", ans: false, icon: "🚗", tip: "电动车行驶中零尾气排放，但电力生产可能产生碳排放，且电池制造也有环境足迹。" },
+    { q: "纸张回收可以无限次循环。", ans: false, icon: "📄", tip: "纸张纤维每次回收都会变短，通常只能循环5-7次，之后纤维过短无法再造纸。" },
+    { q: "玻璃瓶比塑料瓶更环保。", ans: false, icon: "🍾", tip: "玻璃生产耗能高、运输重，若塑料瓶被妥善回收，两者环境影响各有优劣。" },
+
+    // ===== 经济金融（约15题） =====
+    { q: "通货膨胀总是有害的。", ans: false, icon: "💰", tip: "温和通胀（2%-3%）有利于经济增长和就业，只有恶性通胀才具有破坏性。" },
+    { q: "银行存款绝对安全。", ans: false, icon: "🏦", tip: "银行存款受存款保险保护（中国最高50万），超出部分在银行破产时可能损失。" },
+    { q: "房价永远只涨不跌。", ans: false, icon: "🏠", tip: "房地产市场存在周期性，日本90年代泡沫破裂后房价持续下跌近20年。" },
+    { q: "黄金是最安全的投资。", ans: false, icon: "🥇", tip: "黄金价格波动大且不产生现金流，长期回报率低于股票，并非绝对安全。" },
+    { q: "信用卡最低还款是最划算的还款方式。", ans: false, icon: "💳", tip: "最低还款会产生高额利息（日息万分之五），长期下来利息远超全额还款。" },
+
+    // ===== 天文宇宙（约20题） =====
+    { q: "太阳系中最大的火山位于地球上。", ans: false, icon: "🌋", tip: "太阳系最大火山是火星上的奥林帕斯山，高约21.9公里，地球上没有任何火山能与其相比。" },
+    { q: "地球是太阳系中唯一有板块构造的行星。", ans: true, icon: "🌍", tip: "目前已知地球是太阳系中唯一拥有活跃板块构造的行星，其他天体或有冰壳运动。" },
+    { q: "月球正在逐渐远离地球。", ans: true, icon: "🌙", tip: "月球以每年约3.8厘米的速度远离地球，这是潮汐力相互作用的结果。" },
+    { q: "太阳绕银河系中心转一圈约需2.5亿年。", ans: true, icon: "☀️", tip: "太阳系的公转周期约2.25-2.5亿年，上次太阳在当前位置时恐龙刚出现。" },
+    { q: "闪电不会两次击中同一个地方。", ans: false, icon: "⚡", tip: "闪电经常重复击中同一高处建筑，帝国大厦每年被闪电击中约25次。" },
+    { q: "彗星的尾巴总是背向太阳。", ans: true, icon: "☄️", tip: "彗星的离子尾受太阳风吹拂，总是背向太阳方向，无论彗星运行方向如何。" },
+    { q: "流星和陨石是同一个东西。", ans: false, icon: "☄️", tip: "流星是进入大气层燃烧的现象，陨石是落到地面的残留天体，一个在天上一个在地上。" },
+    { q: "月球有一面永远背向地球。", ans: true, icon: "🌑", tip: "月球被潮汐锁定，自转周期等于公转周期，因此始终以同一面朝向地球。" },
+    { q: "地球内核是液态的。", ans: false, icon: "🌍", tip: "地球内核是固态铁镍合金，外核才是液态，这是地震波研究得出的结论。" },
+    { q: "百慕大三角的失踪率高于其他海域。", ans: false, icon: "🔺", tip: "百慕大三角海域交通繁忙，按比例计算的失踪率并不显著高于其他海域。" },
+    { q: "引力波是爱因斯坦预言的存在。", ans: true, icon: "🌊", tip: "爱因斯坦在1916年基于广义相对论预言引力波存在，2015年被LIGO首次探测证实。" },
+    { q: "DNA双螺旋结构由沃森和克里克独家发现。", ans: false, icon: "🧬", tip: "罗莎琳德·富兰克林的X射线衍射照片对发现双螺旋结构至关重要，但未获应有认可。" },
+    { q: "火山喷发可以暂时降低全球气温。", ans: true, icon: "🌋", tip: "大型火山喷发将二氧化硫喷射到平流层形成气溶胶，反射阳光导致短期全球降温。" },
+    { q: "珠峰每年都在变高。", ans: true, icon: "🏔️", tip: "印度板块持续挤压欧亚板块，喜马拉雅山脉仍在抬升，珠峰每年约升高4毫米。" },
+    // ===== 补充题目（凑足500题） =====
+    { q: "吃巧克力会长痘痘。", ans: false, icon: "🍫", tip: "巧克力与痘痘的直接因果关系未被证实，高糖高脂饮食整体可能加重痤疮但非巧克力独有。" },
+    { q: "饭后游泳会抽筋导致溺水。", ans: false, icon: "🏊", tip: "没有医学证据表明饭后游泳会导致抽筋，适度游泳是安全的，但饱腹剧烈运动可能不适。" },
+    { q: "太阳系中最大的火山位于地球上。", ans: false, icon: "🌋", tip: "太阳系最大火山是火星上的奥林帕斯山，高约21.9公里，地球上没有任何火山能与其相比。" },
+    { q: "葡萄酒瓶底凹槽深浅与酒质好坏通常无关。", ans: true, icon: "🍷", tip: "瓶底凹槽主要是为了沉淀残渣和增强结构，并不直接代表品质。" },
+    { q: "冷冻汤圆从冷水开始煮更不易破皮。", ans: true, icon: "🥣", tip: "冷冻汤圆直接下滚水易因温差大而开裂，冷水下锅缓慢升温更安全。" },
+    { q: "被纸割伤比被刀割伤感觉更疼，是因为纸边缘在微观下呈锯齿状。", ans: true, icon: "📄", tip: "纸的纤维边缘在显微镜下粗糙不齐，会撕裂皮肤，刺激更多神经末梢。" },
+    { q: "月球有一面永远背向地球。", ans: true, icon: "🌑", tip: "月球被潮汐锁定，自转周期等于公转周期，因此始终以同一面朝向地球。" },
+    { q: "地球内核是液态的。", ans: false, icon: "🌍", tip: "地球内核是固态铁镍合金，外核才是液态，这是地震波研究得出的结论。" },
+    { q: "人类每年吞下的蜘蛛数量平均为8只。", ans: false, icon: "🕷️", tip: "这是完全虚构的都市传说，人在睡眠中吞下蜘蛛的概率极低。" },
+    { q: "萤火虫的光是冷光。", ans: true, icon: "🪲", tip: "萤火虫生物发光效率极高，约95%能量转化为光，几乎不产生热量，是真正的冷光源。" }
+
+
+];
+
+    // 自动分类
+    function categorizeQuestion(q) {
+    const text = (q.q + " " + q.tip).toLowerCase();
+    
+    // 健康生活（健康医疗 + 人体奥秘 + 心理认知 + 食品安全）
+    if (/(医院|医生|病人|疾病|治疗|药物|药品|打针|输液|手术|体检|血压|心脏|糖尿病|血糖|维生素|补钙|贫血|感冒|发烧|咳嗽|骨折|过敏|疫苗|病毒|细菌|感染|消炎|抗生素|激素|胰岛素|肠胃|消化|便秘|腹泻|胃溃疡|胆结石|痛风|尿酸|胆固醇|血脂|心脏病|中风|癌症|肿瘤|抑郁|焦虑|失眠|磨牙|近视|远视|白内障|鼻炎|哮喘|怀孕|分娩|哺乳|儿童|发育|青春期|更年期|衰老|长寿|养生|保健|中医|针灸|推拿|体质|免疫力|流鼻血|急救|人体|骨骼|肌肉|关节|皮肤|牙齿|舌头|鼻子|耳朵|眼睛|大脑|心脏|血管|血液|肺|肝|肾|胃|肠|心理|认知|记忆|学习|智力|智商|情绪|焦虑|抑郁|性格|人格|催眠|潜意识|梦|食品安全|吃|喝|食物|蔬菜|水果|鸡蛋|牛奶|酸奶|饮料|茶|咖啡|酒|添加剂|防腐剂|味精|酱油|醋|盐|糖|油|过期|变质|中毒|农药|转基因|保质期|烧烤|火锅|炸鸡|冰淇淋|奶茶|蜂蜜|坚果)/.test(text)) return "🏥 健康生活";
+    
+    // 科技自然（科技数码 + 自然动物 + 天文宇宙 + 环保）
+    if (/(手机|电脑|平板|笔记本|显示器|屏幕|摄像头|存储|内存|硬盘|充电|电池|5G|WiFi|蓝牙|GPS|芯片|AI|人工智能|算法|数据|隐私|加密|指纹|人脸识别|语音识别|智能家居|机器人|无人机|3D打印|量子计算|云计算|物联网|动物|植物|昆虫|鸟类|鱼类|哺乳动物|宠物|猫|狗|鸟|鱼|大象|狮子|老虎|熊猫|猴子|蛇|蜘蛛|蜜蜂|蝴蝶|蚊子|珊瑚|海豚|鲸鱼|鲨鱼|章鱼|进化|基因|DNA|生态系统|生物多样性|濒危|灭绝|天文|宇宙|星球|恒星|行星|卫星|彗星|流星|陨石|星系|银河系|黑洞|暗物质|宇宙大爆炸|望远镜|太阳系|月球|火星|地球|引力波|环保|环境|生态|保护|节约|资源|能源|太阳能|风能|水能|核能|碳排放|碳中和|温室效应|全球变暖|气候变化|臭氧层|酸雨|雾霾|污染|回收|降解|植树造林)/.test(text)) return "📱 科技自然";
+    
+    // 人文社会（历史地理 + 法律法规 + 经济金融）
+    if (/(历史|古代|近代|现代|战争|革命|文明|朝代|皇帝|人物|事件|发现|发明|地理|地球|陆地|海洋|国家|城市|山脉|河流|沙漠|草原|冰川|火山|地震|气候|法律|法规|宪法|刑法|民法|警察|法院|律师|犯罪|刑罚|合同|维权|投诉|举报|经济|金融|银行|货币|股票|投资|房价|通胀|理财|信用卡|贷款|保险|税收|GDP|期货|基金|保险)/.test(text)) return "📚 人文社会";
+    
+    // 生活百科（生活常识 + 物理化学）
+    if (/(生活|日常|居家|清洁|洗衣|做饭|收纳|维修|省电|省水|购物|快递|外卖|报警|急救|消防|逃生|地震|洪水|台风|防晒|防蚊|通风|晾晒|交通|驾车|跑步|健身|运动|游泳|物理|化学|力学|热学|光学|声学|电学|磁学|量子力学|相对论|重力|浮力|压力|速度|能量|光|声|电|磁|原子|分子|离子|电子|质子|中子|温度|热量|溶液|酸碱|氧化|燃烧|爆炸|催化剂|塑料|玻璃|金属|半导体)/.test(text)) return "🏠 生活百科";
+    
+    return "🎲 其他";
+}
+    allQuestions.forEach(q => q.category = categorizeQuestion(q));
+
+    // 毒舌语库
+    const correctTaunts = [ 
+        "你是天选之人！", "大脑堪比维基百科！", "这题都能对，你是人类吗？",
+        "开挂了吧？", "知识储备已超AI", "稳如老狗！", "这波在大气层",
+        "真·百科全书", "蒙的吧？但确实对了", "瞎猫碰上死耗子",
+        "这题也敢对？膨胀了", "你是不是偷看答案了？", "偶尔聪明一次也是可以的",
+        "运气也是实力的一部分", "继续嘚瑟，下一题等着你", "今天智商在线",
+        "不错，奖励一朵小红花🌺", "快去买彩票，今天运气爆棚",
+        "算你狠，这次给你记一功。", "这次脑子终于上线了。",
+        "蒙的全对，考试之神附体？", "别骄傲，这可能是你今天的智商巅峰。",
+        "你是不是偷偷补习了？", "运气这么好，建议出门买彩票。",
+        "不错不错，继续保持这种诈尸式发挥。", "这回是你，下回就不好说了。",
+        "大脑短暂的灵光一闪。", "你确定不是手滑点对的？",
+        "你的知识库存还有货，难得难得。", "恭喜解锁成就：偶尔聪明。",
+        "这一题拯救了你的平均智商。", "对你而言，对一题就是过年。",
+        "可把你厉害坏了，叉会儿腰。", "判断力短暂恢复到正常人水平。",
+        "这题都能对，晚饭加个鸡腿。", "你可能是瞎蒙界的王者。",
+        "这回脑子没进水，值得表扬。", "继续保持，还有题等着教你做人。"];
+    const wrongTaunts = [
+        "这都错？你的脑子是装饰品吗？", "建议回炉重造", "智商税已缴",
+        "假新闻受害者", "脑子是个好东西，可惜你没有", "你就是传说中的反向指标吧",
+        "建议下载反诈APP", "你的判断力约等于零", "完美避开正确答案",
+        "你这水平基本告别知识了", "你这答案是用脚趾头想的吗？",
+        "智商余额不足，请及时充值", "建议重新投胎", "错误答案精准推送",
+        "人类进化的漏网之鱼", "你可能是假新闻的VIP会员",
+        "脑子：我走了，勿念", "答错得如此坚定也是一种天赋",
+        "这题答错，晚饭别吃了", "你的判断力已欠费停机",
+        "别难过，至少你错得很认真", "完美避开所有正确选项",
+        "你的大脑正在休眠，请按任意键唤醒", "建议把题目抄一百遍",
+        "你是敌军派来的卧底吧？", "这都能错？你是来搞笑的吗？",
+        "脑子：我走了，他太蠢了。", "错误率稳定得像心电图一条直线。",
+        "建议把答案撕了当草纸。", "你的智商被狗吃了吗？",
+        "假消息看到你都得喊声亲爹。", "反向指标重出江湖。",
+        "你完美诠释了什么叫“无知者无畏”。", "这道题哭着说：你为什么不认识我？",
+        "你的大脑已经欠费停机，请续费。", "也许你应该改行当喜剧演员。",
+        "真相在你面前摔跤了你都没看见。", "你是在用膝盖思考吗？",
+        "这一错，错出了风格，错出了水平。", "你以为你在答题，其实你在表演犯错。",
+        "你的逻辑喂狗了？", "真替你着急，脑子是个日用品，不是装饰品。",
+        "阎王要你三更错，绝不留你到五更。", "别灰心，你至少成功地避开了正确答案。",
+        "这水平，基本也就告别自行车了。"];
+    const timeUpTaunts = [
+        "超时了！睡着了吗？", "快醒醒！", "你的反射弧能绕地球三圈",
+        "等你答完题，年都过完了", "你是用脚打字吗？", "等你想好，黄花菜都凉了",
+        "思考到外太空去了？", "时间管理大师的失败案例", "乌龟都比你快",
+        "这道题等得花都谢了", "你的延迟比2G网络还高", "再给你十秒也是浪费",
+        "倒计时都替你着急", "你是来挂机的吗？", "你是用脚在答题吗？",
+        "等你选完，我胡子都白了。", "树懒都比你快三圈。",
+        "时间都去哪儿了？被你发呆了。", "你在和题目进行灵魂交流吗？",
+        "思考到宇宙尽头去了？", "这么简单的题，你是现去百度了吗？",
+        "你的反射弧能绕地球一圈半。", "别等了，选C都比超时强。",
+        "你和闪电比速度，闪电赢了。", "我奶奶打字都比你快。",
+        "请你尊重一下倒计时好吗？", "挂着机还能指望赢？",
+        "你是来参加发呆比赛的？", "别人争分夺秒，你是在争秒变蜗牛。",
+        "倒计时都替你急得冒烟了。", "你这手速，基本告别电子竞技了。",
+        "是不是手机掉地上弯腰捡去了？", "下一题请用人类的速度回答。",
+        "你的时间管理能力为负，鉴定完毕。"];
+
+    function randomTaunt(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+    function showToast(text) {
+        let toast = document.createElement('div');
+        toast.className = 'toast';
+        toast.innerText = text;
+        document.body.appendChild(toast);
+        setTimeout(() => toast.remove(), 2000);
+    }
+
+    let audioCtx = null;
+    function initAudio() { if (!audioCtx) { try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch(e) {} } }
+    function beep(freq, duration, type) {
+        if (!audioCtx) return;
+        try {
+            let o = audioCtx.createOscillator(), g = audioCtx.createGain();
+            o.type = type || 'sine'; o.frequency.value = freq;
+            g.gain.setValueAtTime(0.1, audioCtx.currentTime);
+            g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+            o.connect(g); g.connect(audioCtx.destination);
+            o.start(); o.stop(audioCtx.currentTime + duration);
+        } catch(e) {}
+    }
+    function spawnParticles(emoji, count = 15) {
+        for (let i = 0; i < count; i++) {
+            let p = document.createElement('div');
+            p.className = 'particle'; p.innerText = emoji;
+            p.style.left = 50 + Math.random() * 10 + '%';
+            p.style.top = 40 + Math.random() * 20 + '%';
+            p.style.setProperty('--x', (Math.random() - 0.5) * 200 + 'px');
+            p.style.setProperty('--y', (Math.random() - 0.5) * 200 + 'px');
+            p.style.fontSize = (20 + Math.random() * 30) + 'px';
+            document.body.appendChild(p);
+            setTimeout(() => p.remove(), 1500);
+        }
+    }
+
+    (function createStars() {
+        let container = document.getElementById('starsContainer');
+        for (let i = 0; i < 100; i++) {
+            let s = document.createElement('div');
+            s.className = 'star';
+            s.style.left = Math.random() * 100 + '%';
+            s.style.top = Math.random() * 100 + '%';
+            s.style.width = s.style.height = Math.random() * 3 + 1 + 'px';
+            s.style.setProperty('--d', (Math.random() * 2 + 2) + 's');
+            s.style.background = ['#fff','#ff00ff','#00ffff','#ffaa00'][Math.floor(Math.random() * 4)];
+            container.appendChild(s);
+        }
+    })();
+
+    // 金币系统（每局重置）
+    let totalCoins = 0;
+    let earnedCoins = 0;
+    let doubleActive = false;
+    let insuranceActive = false;
+    let coinMultiplier = 1;
+
+    function updateCoinDisplay() {
+        document.getElementById('totalCoins').innerText = totalCoins;
+        document.getElementById('coinDisplay').style.display = 'flex';
+    }
+    function addCoins(amount) {
+        let gained = Math.floor(amount * coinMultiplier);
+        if (gained < 0) gained = 0;
+        totalCoins += gained;
+        earnedCoins += gained;
+        updateCoinDisplay();
+    }
+    function spendCoins(amount) {
+        if (totalCoins < amount) return false;
+        totalCoins -= amount;
+        updateCoinDisplay();
+        return true;
+    }
+
+    // ★ 修改后的道具价格
+    function buyTime() { if (!spendCoins(4)) { showToast('🪙 金币不足！'); return; } timeLeft += 5; document.getElementById('timerDisplay').innerText = timeLeft + 's'; showToast('⏳ 加时5秒！'); beep(500, 0.1, 'sine'); }
+    function buyHint() { if (!spendCoins(4)) { showToast('🪙 金币不足！'); return; } let q = questionPool[nowIndex]; showModal('💡 付费提示', q.ans ? '真相：这题是真的！' : '真相：这题是假的！', [{ text: '知道了', cb: () => {} }]); }
+    function buyDouble() { if (doubleActive) { showToast('🔥 双倍积分已激活！'); return; } if (!spendCoins(6)) { showToast('🪙 金币不足！'); return; } doubleActive = true; document.getElementById('doubleItem').classList.add('disabled'); showToast('🔥 双倍积分已激活！下一题答对得分翻倍'); beep(700, 0.1, 'triangle'); }
+    function buyInsurance() { if (insuranceActive) { showToast('🛡️ 保险卡已激活！'); return; } if (!spendCoins(5)) { showToast('🪙 金币不足！'); return; } insuranceActive = true; showToast('🛡️ 保险卡已激活！答错这题不记仇'); }
+
+    function showModal(title, content, buttons) {
+        let mask = document.getElementById('modalMask');
+        let box = document.getElementById('modalContent');
+        box.innerHTML = `<p>${title}</p><p>${content}</p>`;
+        buttons.forEach(b => {
+            let btn = document.createElement('button');
+            btn.innerText = b.text; btn.style.margin = '5px';
+            btn.className = 'btn btn-other';
+            btn.onclick = () => { b.cb(); mask.style.display = 'none'; };
+            box.appendChild(btn);
+        });
+        mask.style.display = 'flex';
+    }
+
+    function useHint() { if (hintRemain <= 0) { showToast('免费提示已用完，可用金币购买 💡'); return; } hintRemain--; document.getElementById('hintCount').innerText = hintRemain; if (hintRemain <= 0) document.getElementById('hintBtn').disabled = true; let q = questionPool[nowIndex]; showModal('💡 免费提示', q.ans ? '真相：这题是真的！' : '真相：这题是假的！', [{ text: '知道了', cb: () => {} }]); }
+
+    // 游戏核心变量
+    let questionPool, nowIndex, userScore, countTimer, timeLeft, wrongList = [];
+    let combo = 0, maxCombo = 0;
+    const totalNum = 20, scorePerQ = 5;
+    let MAX_TIME = 10;
+    let hintRemain = 2;
+    let isCrazyMode = false, titleClickCount = 0;
+    let localScores = JSON.parse(localStorage.getItem('publicScores') || '[]');
+    let currentDifficulty = 'normal';
+    let selectedCategories = new Set();
+
+    function setDifficulty(diff) {
+        currentDifficulty = diff;
+        document.querySelectorAll('.diff-btn').forEach(b => b.classList.remove('active'));
+        document.getElementById('diffEasy').classList.toggle('active', diff === 'easy');
+        document.getElementById('diffNormal').classList.toggle('active', diff === 'normal');
+        document.getElementById('diffHell').classList.toggle('active', diff === 'hell');
+    }
+
+    function toggleCategory(cat) {
+        if (selectedCategories.has(cat)) selectedCategories.delete(cat);
+        else selectedCategories.add(cat);
+        renderCategoryChips();
+    }
+
+    function renderCategoryChips() {
+         const container = document.getElementById('catSelector');
+    const allCats = [...new Set(allQuestions.map(q => q.category))].sort();
+    // 让大类按固定顺序显示
+    const order = ["🏥 健康生活", "📱 科技自然", "📚 人文社会", "🏠 生活百科", "🎲 其他"];
+    const sortedCats = order.filter(cat => allCats.includes(cat));
+    let html = '';
+    sortedCats.forEach(cat => {
+        const selected = selectedCategories.has(cat) ? 'selected' : '';
+        html += `<span class="cat-chip ${selected}" onclick="toggleCategory('${cat}')">${cat}</span>`;
+    });
+    container.innerHTML = html;
+    }
+
+    function initCategories() {
+        const allCats = [...new Set(allQuestions.map(q => q.category))];
+        selectedCategories = new Set(allCats);
+        renderCategoryChips();
+    }
+
+    function shuffle(arr) { return [...arr].sort(() => Math.random() - 0.5); }
+
+function getQuestions() {
+        let filtered = allQuestions.filter(q => selectedCategories.has(q.category));
+        if (filtered.length < totalNum) {
+            let others = allQuestions.filter(q => !selectedCategories.has(q.category));
+            let need = totalNum - filtered.length;
+            let supplement = shuffle(others).slice(0, need);
+            filtered = [...filtered, ...supplement];
+        }
+        filtered = shuffle(filtered);
+        let t = filtered.filter(q => q.ans);
+        let f = filtered.filter(q => !q.ans);
+        let pool = [];
+        for (let i = 0; i < Math.min(t.length, f.length, totalNum/2); i++) {
+            pool.push(t[i], f[i]);
+        }
+        let remaining = filtered.filter(q => !pool.includes(q));
+        while (pool.length < totalNum && remaining.length > 0) {
+            pool.push(remaining.shift());
+        }
+        return shuffle(pool).slice(0, totalNum);
+    }
+
+    function hideAll() { if (countTimer) { clearInterval(countTimer); countTimer = null; } document.querySelectorAll('.game-card').forEach(el => el.classList.add('hidden')); document.getElementById('modalMask').style.display = 'none'; }
+
+
+    function clickTitle() { titleClickCount++; if (titleClickCount >= 5 && !isCrazyMode) { isCrazyMode = true;
+        let crazyTime = { easy: 4, normal: 3, hell: 2 }[currentDifficulty] || 5;
+        MAX_TIME = crazyTime;
+        hintRemain = 0; coinMultiplier += 1;
+        document.getElementById('hintCount').innerText = '0';
+        document.getElementById('hintBtn').disabled = true;
+        let badge = document.createElement('div');
+        badge.className = 'crazy-badge';
+        badge.innerText = `🤪 疯狂模式：${crazyTime}秒极限！`;
+        document.body.appendChild(badge);
+        setTimeout(() => badge.remove(), 3000);
+        showToast('🔥 疯狂模式启动！金币倍率+1');
+        beep(800, 'square', 0.3);
+    }}
+
+    function startIntro() {
+        initAudio();
+        hideAll();
+        document.getElementById('gameBox').classList.remove('hidden');
+        document.getElementById('qCard').classList.add('hidden');
+        document.getElementById('feedCard').classList.add('hidden');
+        let count = 3;
+        let introDiv = document.createElement('div');
+        introDiv.style.fontSize = '80px';
+        introDiv.style.textAlign = 'center';
+        introDiv.style.color = 'white';
+        document.getElementById('gameBox').appendChild(introDiv);
+
+        function tick() {
+            if (count > 0) {
+                introDiv.innerText = count;
+                beep(400, 'square', 0.2);
+                count--;
+                setTimeout(tick, 800);
+            } else {
+                introDiv.remove();
+                startGame();
+            }
+        }
+        tick();
+    }
+
+    function startGame() {
+        totalCoins = 0;
+        earnedCoins = 0;
+        updateCoinDisplay();
+
+        let baseTime = { easy: 7, normal: 5, hell: 3 };
+        MAX_TIME = isCrazyMode ? { easy: 4, normal: 3, hell: 2 }[currentDifficulty] : baseTime[currentDifficulty];
+        coinMultiplier = { easy: 0, normal: 1, hell: 2 }[currentDifficulty];
+        if (isCrazyMode) coinMultiplier += 1;
+        doubleActive = false;
+        insuranceActive = false;
+        document.getElementById('doubleItem').classList.remove('disabled');
+        questionPool = getQuestions(); nowIndex = 0; userScore = 0; wrongList = []; combo = 0; maxCombo = 0;
+        hintRemain = isCrazyMode ? 0 : 2;
+        document.getElementById('hintCount').innerText = hintRemain;
+        document.getElementById('hintBtn').disabled = hintRemain === 0;
+        document.getElementById('qCard').classList.remove('hidden');
+        document.getElementById('feedCard').classList.add('hidden');
+        document.getElementById('gameBox').classList.remove('hidden');
+        document.body.classList.remove('fire-border');
+        loadQuestion();
+    }
+
+    function loadQuestion() { if (countTimer) { clearInterval(countTimer); countTimer = null; } let q = questionPool[nowIndex]; document.getElementById('pageNum').innerText = `${nowIndex + 1}/${totalNum}`; document.getElementById('nowScore').innerText = userScore; document.getElementById('progressBar').style.width = `${(nowIndex + 1) / totalNum * 100}%`; document.getElementById('iconBox').innerText = q.icon; document.getElementById('questionText').innerText = q.q; timeLeft = MAX_TIME; let timerEl = document.getElementById('timerDisplay'); timerEl.innerText = timeLeft + 's'; timerEl.classList.remove('urgent'); countTimer = setInterval(() => { timeLeft--; timerEl.innerText = timeLeft + 's'; if (timeLeft <= 3) timerEl.classList.add('urgent'); if (timeLeft <= 0) { clearInterval(countTimer); spawnParticles('💥', 10); beep(100, 0.6, 'sawtooth'); combo = 0; document.body.classList.remove('fire-border'); showToast(randomTaunt(timeUpTaunts)); wrongList.push({ q: q.q, userAns: '超时', rightAns: q.ans, tip: q.tip }); showFeed(false); } }, 1000); }
+
+    function selectAns(ans) { clearInterval(countTimer); if (ans === 'dontKnow') { showModal('🤷 别放弃', '请选择你认为的答案', [{ text: '回去答题', cb: () => { loadQuestion(); } }]); return; } let q = questionPool[nowIndex]; let isRight = (ans === q.ans); if (isRight) { let points = scorePerQ; if (doubleActive) { points *= 2; doubleActive = false; document.getElementById('doubleItem').classList.remove('disabled'); } userScore += points; combo++; if (combo > maxCombo) maxCombo = combo; beep(600, 0.2, 'sine'); if (combo >= 3) { spawnParticles('🔥', 20); userScore += combo; document.body.classList.add('fire-border'); } spawnParticles('🎉', 20); showToast(randomTaunt(correctTaunts)); addCoins(1); } else { if (insuranceActive) { insuranceActive = false; showToast('🛡️ 保险卡生效！答错不记仇'); } else { combo = 0; document.body.classList.remove('fire-border'); beep(150, 0.6, 'square'); spawnParticles('💩', 15); showToast(randomTaunt(wrongTaunts)); wrongList.push({ q: q.q, userAns: ans, rightAns: q.ans, tip: q.tip }); } } showFeed(isRight); }
+
+    function showFeed(isRight) { document.getElementById('qCard').classList.add('hidden'); document.getElementById('feedCard').classList.remove('hidden'); document.getElementById('feedTitle').innerText = isRight ? '✅ 答对了！' : '❌ 答错了！'; document.getElementById('feedTitle').style.color = isRight ? '#69f0ae' : '#ff5252'; document.getElementById('tipsBox').innerHTML = `<strong>💡 科普：</strong>${questionPool[nowIndex].tip}`; }
+
+    function nextQuestion() { nowIndex++; if (nowIndex >= totalNum) return showResult(); document.getElementById('feedCard').classList.add('hidden'); document.getElementById('qCard').classList.remove('hidden'); loadQuestion(); }
+
+    function showResult() { hideAll(); document.getElementById('resultBox').classList.remove('hidden'); document.getElementById('finalScore').innerText = userScore; document.getElementById('earnedCoins').innerText = earnedCoins; document.getElementById('finalTotalCoins').innerText = totalCoins; let emoji, title, iq; if (userScore >= 90) { emoji = '👑'; title = '知识之神'; iq = '智商碾压99.9%的人类。'; } else if (userScore >= 70) { emoji = '💀'; title = '脑洞王者'; iq = '知识储备还行，偶尔翻车。'; } else if (userScore >= 50) { emoji = '😈'; title = '地狱街溜子'; iq = '半蒙半猜，运气成分大于实力。'; } else { emoji = '🤡'; title = '知识难民'; iq = '你的大脑处于休眠状态。'; } document.getElementById('resultEmoji').innerText = emoji; document.getElementById('rankTitle').innerText = title + ' (最高连击' + maxCombo + '次)'; document.getElementById('iqReport').innerText = iq; }
+
+    function openWrongBook() { hideAll(); document.getElementById('wrongBox').classList.remove('hidden'); let list = document.getElementById('wrongList'); if (wrongList.length === 0) { list.innerHTML = '<p style="color:#69f0ae;">🎉 全对！没有错题！</p>'; return; } list.innerHTML = wrongList.map((w, i) => `<div style="background:rgba(255,0,0,0.1);padding:10px;border-radius:10px;margin:8px 0;"><p>❓ ${w.q}</p><p>👤 你答：${w.userAns === true ? '真的' : w.userAns === false ? '假的' : w.userAns}</p><p>✅ 真相：${w.rightAns ? '真的' : '假的'} ${i%2===0 ? '— 真替你害臊' : '— 这都错，服了'}</p><p>💡 ${w.tip}</p></div>`).join(''); }
+
+    
+
+    function showRank() { hideAll();
+document.getElementById('rankBox').classList.remove('hidden');
+    fetch('https://api.jsonbin.io/v3/b/67c4f8ac8a456b7966c8e8a7/latest')
+        .then(res => res.json())
+        .then(data => {
+            let scores = data.record || [];
+            scores.sort((a,b) => b.score - a.score);
+            let tbody = document.getElementById('rankTable');
+            tbody.innerHTML = '<tr><th>名次</th><th>玩家</th><th>分数</th></tr>';
+            if (scores.length === 0) {
+                tbody.innerHTML += '<tr><td colspan="3">暂无数据，快去成为第一名！</td></tr>';
+                return;
+            }
+            for (let i = 0; i < Math.min(scores.length, 20); i++) {
+                tbody.innerHTML += `<tr><td>${i+1}</td><td>${scores[i].name}</td><td>${scores[i].score}</td></tr>`;
+            }
+        })
+        .catch(() => {
+            document.getElementById('rankTable').innerHTML = '<tr><td colspan="3">加载失败，请重试</td></tr>';
+        });
+}
+    function shareGame() { navigator.clipboard.writeText(window.location.href).then(() => alert('🔗 游戏链接已复制，发给朋友一起玩！')); }
+    function saveScore() {let name = document.getElementById('playerName').value.trim();
+    if (!name) { alert("请输入昵称！"); return; }
+    fetch('https://api.jsonbin.io/v3/b/67c4f8ac8a456b7966c8e8a7')
+        .then(res => res.json())
+        .then(data => {
+            let scores = data.record || [];
+            let existing = scores.find(s => s.name === name);
+            if (existing) {
+                if (userScore > existing.score) existing.score = userScore;
+            } else {
+                scores.push({ name: name, score: userScore, time: Date.now() });
+            }
+            scores.sort((a,b) => b.score - a.score);
+            if (scores.length > 50) scores = scores.slice(0, 50);
+            return fetch('https://api.jsonbin.io/v3/b/67c4f8ac8a456b7966c8e8a7', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(scores)
+            });
+        })
+        .then(() => {
+            alert(`✅ 分数 ${userScore} 已提交到全球排行榜！`);
+        })
+        .catch(() => {
+            alert('❌ 提交失败，请检查网络');
+        }); }
+
+    function restartGame() { startGame(); }
+    function backToCover() { hideAll(); document.getElementById('cover').classList.remove('hidden'); }
+    function backToResult() { hideAll(); document.getElementById('resultBox').classList.remove('hidden'); }
+
+    updateCoinDisplay();
+    initCategories();
+    setDifficulty('normal');
+</script>
+</body>
+</html>
