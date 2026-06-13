@@ -923,80 +923,97 @@ function getQuestions() {
     function showResult() { hideAll(); document.getElementById('resultBox').classList.remove('hidden'); document.getElementById('finalScore').innerText = userScore; document.getElementById('earnedCoins').innerText = earnedCoins; document.getElementById('finalTotalCoins').innerText = totalCoins; let emoji, title, iq; if (userScore >= 90) { emoji = '👑'; title = '知识之神'; iq = '智商碾压99.9%的人类。'; } else if (userScore >= 70) { emoji = '💀'; title = '脑洞王者'; iq = '知识储备还行，偶尔翻车。'; } else if (userScore >= 50) { emoji = '😈'; title = '地狱街溜子'; iq = '半蒙半猜，运气成分大于实力。'; } else { emoji = '🤡'; title = '知识难民'; iq = '你的大脑处于休眠状态。'; } document.getElementById('resultEmoji').innerText = emoji; document.getElementById('rankTitle').innerText = title + ' (最高连击' + maxCombo + '次)'; document.getElementById('iqReport').innerText = iq; }
 
     function openWrongBook() { hideAll(); document.getElementById('wrongBox').classList.remove('hidden'); let list = document.getElementById('wrongList'); if (wrongList.length === 0) { list.innerHTML = '<p style="color:#69f0ae;">🎉 全对！没有错题！</p>'; return; } list.innerHTML = wrongList.map((w, i) => `<div style="background:rgba(255,0,0,0.1);padding:10px;border-radius:10px;margin:8px 0;"><p>❓ ${w.q}</p><p>👤 你答：${w.userAns === true ? '真的' : w.userAns === false ? '假的' : w.userAns}</p><p>✅ 真相：${w.rightAns ? '真的' : '假的'} ${i%2===0 ? '— 真替你害臊' : '— 这都错，服了'}</p><p>💡 ${w.tip}</p></div>`).join(''); }
-// ========== 请在这里填入你的 Gist ID 和 Token ==========
-const GIST_ID = '309ed1fa53acb5d9b5e3645fe1f3f021';      // 替换成第一步复制的 Gist ID
-const GIST_TOKEN = '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';     // 替换成第二步复制的 Token
-// =====================================================
+// Pages固定配置
+const GITHUB_USER = "AAAAAngela";
+const GITHUB_REPO = "brain-game";
+const GITHUB_BRANCH = "main";
+const FILE_PATH = "scores.json";
+const JSON_URL = `https://${GITHUB_USER}.github.io/${GITHUB_REPO}/${FILE_PATH}`;
+// 仅本地测试临时填写，正式部署务必删掉
+const GITHUB_TOKEN = "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";
 
-const GIST_API_URL = `https://api.github.com/gists/${GIST_ID}`;
-// 使用国内可用镜像
-const GIST_MIRROR_URL = GIST_API_URL;
- // 固定Pages JSON地址，无需修改其他内容
-const JSON_URL = "https://aaaaangela.github.io/brain-game/scores.json";
-
-// 读取并渲染排行榜
+// 读取排行榜（同源无CORS）
 async function showRank() {
     hideAll();
     document.getElementById('rankBox').classList.remove('hidden');
-    const tbody = document.querySelector('#rankTable tbody');
+    const rankTable = document.getElementById('rankTable');
     try {
-        const res = await fetch(GIST_API_URL);
-        const data = await res.json();
-        let content = data.files['scores.json']?.content || '[]';
-        let scores = JSON.parse(content);
-        if (!Array.isArray(scores)) scores = [];
-        scores.sort((a,b) => b.score - a.score);
-        tbody.innerHTML = '';
+        const res = await fetch(JSON_URL);
+        const scores = await res.json();
+        scores.sort((a, b) => b.score - a.score);
+        let html = '<tr><th>名次</th><th>玩家</th><th>分数</th></tr>';
         if (scores.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="3">暂无数据，快去成为第一名！</td></tr>';
-            return;
+            html += '<tr><td colspan="3">暂无上榜数据，快去提交分数！</td></tr>';
+        } else {
+            scores.slice(0, 20).forEach((item, idx) => {
+                html += `<tr><td>${idx + 1}</td><td>${item.name}</td><td>${item.score}</td></tr>`;
+            });
         }
-        for (let i = 0; i < Math.min(scores.length, 20); i++) {
-            tbody.innerHTML += `<tr><td>${i+1}</td><td>${scores[i].name}</td><td>${scores[i].score}</td></tr>`;
-        }
-    } catch(e) {
-        console.error(e);
-        tbody.innerHTML = '<tr><td colspan="3">加载失败，请重试</td></tr>';
+        rankTable.innerHTML = html;
+    } catch (err) {
+        rankTable.innerHTML = '<tr><td colspan="3">排行榜加载失败，请稍后重试</td></tr>';
+        console.error(err);
     }
 }
-    async function saveScore() {
-    let name = document.getElementById('playerName').value.trim();
-    if (!name) { alert("请输入昵称！"); return; }
-    try {
-        // 读取当前 Gist 数据
-        const res = await fetch(GIST_API_URL);
-        const data = await res.json();
-        let content = data.files['scores.json']?.content || '[]';
-        let scores = JSON.parse(content);
-        if (!Array.isArray(scores)) scores = [];
-        
-        // 更新或添加分数
-        let existing = scores.find(s => s.name === name);
-        if (existing) {
-            if (userScore > existing.score) existing.score = userScore;
-        } else {
-            scores.push({ name: name, score: userScore, time: Date.now() });
+
+// 全自动提交分数，无需手动改JSON
+async function saveScore() {
+    const name = document.getElementById('playerName').value.trim();
+    if (!name) {
+        alert("请输入昵称！");
+        return;
+    }
+
+    // 拉取最新文件内容+sha标识
+    const fileResp = await fetch(`https://api.github.com/repos/${GITHUB_USER}/${GITHUB_REPO}/contents/${FILE_PATH}?ref=${GITHUB_BRANCH}`, {
+        headers: {
+            "Authorization": `token ${GITHUB_TOKEN}`,
+            "Accept": "application/vnd.github.v3+json"
         }
-        
-        // 排序并限制数量
-        scores.sort((a,b) => b.score - a.score);
-        if (scores.length > 50) scores = scores.slice(0, 50);
-        
-        // 写回 Gist
-        await fetch(GIST_API_URL, {
-            method: 'PATCH',
-            headers: {
-                'Authorization': `token ${GIST_TOKEN}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                files: { 'scores.json': { content: JSON.stringify(scores, null, 2) } }
-            })
+    });
+    const fileData = await fileResp.json();
+    let oldScores = JSON.parse(atob(fileData.content));
+
+    // 同名保留最高分
+    const existIdx = oldScores.findIndex(item => item.name === name);
+    if (existIdx > -1) {
+        if (userScore > oldScores[existIdx].score) {
+            oldScores[existIdx].score = userScore;
+        }
+    } else {
+        oldScores.push({
+            name,
+            score: userScore,
+            time: Date.now()
         });
-        alert(`✅ 分数 ${userScore} 已提交到全球排行榜！`);
-    } catch(e) {
-        console.error(e);
-        alert('❌ 提交失败，请检查网络或 Token 权限');
+    }
+
+    // 排序，最多留存50条榜单
+    oldScores.sort((a, b) => b.score - a.score);
+    if (oldScores.length > 50) oldScores = oldScores.slice(0, 50);
+
+    // Base64编码提交更新
+    const newContentBase64 = btoa(JSON.stringify(oldScores, null, 4));
+    const putResp = await fetch(`https://api.github.com/repos/${GITHUB_USER}/${GITHUB_REPO}/contents/${FILE_PATH}`, {
+        method: "PUT",
+        headers: {
+            "Authorization": `token ${GITHUB_TOKEN}`,
+            "Accept": "application/vnd.github.v3+json",
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+            message: `自动更新榜单：玩家${name} 分数${userScore}`,
+            content: newContentBase64,
+            sha: fileData.sha,
+            branch: GITHUB_BRANCH
+        })
+    });
+
+    if (putResp.ok) {
+        alert(`✅ 分数${userScore}全自动提交成功！\n等待GitHub Pages 1~2分钟自动部署，刷新排行榜即可看到新数据`);
+    } else {
+        const err = await putResp.json();
+        alert("❌ 提交失败：" + err.message);
     }
 }
 function backToResult() { hideAll(); document.getElementById('resultBox').classList.remove('hidden'); }
