@@ -962,37 +962,43 @@ async function showRank() {
 async function saveScore() {
     let name = document.getElementById('playerName').value.trim();
     if (!name) { alert("请输入昵称！"); return; }
+    
     try {
-        const res = await fetch(GIST_API_URL);
-        const data = await res.json();
-        let content = data.files['scores.json']?.content || '[]';
-        let scores = JSON.parse(content);
-        if (!Array.isArray(scores)) scores = [];
+        // 1. 获取当前文件
+        const fileRes = await fetch('https://api.github.com/repos/AAAAAngela/brain-game/contents/scores.json', {
+            headers: { 'Authorization': `token ${GIST_TOKEN}`, 'Accept': 'application/vnd.github.v3+json' }
+        });
+        const fileData = await fileRes.json();
+        let scores = JSON.parse(atob(fileData.content));
         
+        // 2. 更新分数
         let existing = scores.find(s => s.name === name);
         if (existing) {
             if (userScore > existing.score) existing.score = userScore;
         } else {
             scores.push({ name: name, score: userScore, time: Date.now() });
         }
-        
         scores.sort((a,b) => b.score - a.score);
         if (scores.length > 50) scores = scores.slice(0, 50);
         
-        await fetch(GIST_API_URL, {
-            method: 'PATCH',
+        // 3. 自动写回仓库
+        const newContent = btoa(unescape(encodeURIComponent(JSON.stringify(scores, null, 2))));
+        await fetch('https://api.github.com/repos/AAAAAngela/brain-game/contents/scores.json', {
+            method: 'PUT',
             headers: {
                 'Authorization': `token ${GIST_TOKEN}`,
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-                files: { 'scores.json': { content: JSON.stringify(scores, null, 2) } }
+                message: `自动更新：${name} ${userScore}分`,
+                content: newContent,
+                sha: fileData.sha
             })
         });
-        alert(`✅ 分数 ${userScore} 已提交到全球排行榜！`);
+        alert(`✅ 分数 ${userScore} 已自动提交！`);
     } catch(e) {
         console.error(e);
-        alert('❌ 提交失败，请检查网络');
+        alert('❌ 提交失败');
     }
 }
 updateCoinDisplay();
