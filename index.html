@@ -924,14 +924,13 @@ function getQuestions() {
 
     function openWrongBook() { hideAll(); document.getElementById('wrongBox').classList.remove('hidden'); let list = document.getElementById('wrongList'); if (wrongList.length === 0) { list.innerHTML = '<p style="color:#69f0ae;">🎉 全对！没有错题！</p>'; return; } list.innerHTML = wrongList.map((w, i) => `<div style="background:rgba(255,0,0,0.1);padding:10px;border-radius:10px;margin:8px 0;"><p>❓ ${w.q}</p><p>👤 你答：${w.userAns === true ? '真的' : w.userAns === false ? '假的' : w.userAns}</p><p>✅ 真相：${w.rightAns ? '真的' : '假的'} ${i%2===0 ? '— 真替你害臊' : '— 这都错，服了'}</p><p>💡 ${w.tip}</p></div>`).join(''); }
 
-    
-
-    function showRank() { hideAll();
-document.getElementById('rankBox').classList.remove('hidden');
-    fetch('https://api.jsonbin.io/v3/b/67c4f8ac8a456b7966c8e8a7/latest')
+ function showRank() {
+    hideAll();
+    document.getElementById('rankBox').classList.remove('hidden');
+    fetch('https://cors-anywhere.herokuapp.com/https://jsonblob.com/api/jsonBlob/019ebff5-d5ee-76de-8ee4-409465a903c8')
         .then(res => res.json())
         .then(data => {
-            let scores = data.record || [];
+            let scores = data || [];
             scores.sort((a,b) => b.score - a.score);
             let tbody = document.getElementById('rankTable');
             tbody.innerHTML = '<tr><th>名次</th><th>玩家</th><th>分数</th></tr>';
@@ -947,13 +946,14 @@ document.getElementById('rankBox').classList.remove('hidden');
             document.getElementById('rankTable').innerHTML = '<tr><td colspan="3">加载失败，请重试</td></tr>';
         });
 }
-    function shareGame() { navigator.clipboard.writeText(window.location.href).then(() => alert('🔗 游戏链接已复制，发给朋友一起玩！')); }
-    function saveScore() {let name = document.getElementById('playerName').value.trim();
+
+function saveScore() {
+    let name = document.getElementById('playerName').value.trim();
     if (!name) { alert("请输入昵称！"); return; }
-    fetch('https://api.jsonbin.io/v3/b/67c4f8ac8a456b7966c8e8a7')
+    fetch('https://cors-anywhere.herokuapp.com/https://jsonblob.com/api/jsonBlob/019ebff5-d5ee-76de-8ee4-409465a903c8')
         .then(res => res.json())
         .then(data => {
-            let scores = data.record || [];
+            let scores = data || [];
             let existing = scores.find(s => s.name === name);
             if (existing) {
                 if (userScore > existing.score) existing.score = userScore;
@@ -962,7 +962,7 @@ document.getElementById('rankBox').classList.remove('hidden');
             }
             scores.sort((a,b) => b.score - a.score);
             if (scores.length > 50) scores = scores.slice(0, 50);
-            return fetch('https://api.jsonbin.io/v3/b/67c4f8ac8a456b7966c8e8a7', {
+            return fetch('https://cors-anywhere.herokuapp.com/https://jsonblob.com/api/jsonBlob/019ebff5-d5ee-76de-8ee4-409465a903c8', {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(scores)
@@ -973,8 +973,18 @@ document.getElementById('rankBox').classList.remove('hidden');
         })
         .catch(() => {
             alert('❌ 提交失败，请检查网络');
-        }); }
+        });
+}
 
+function shareGame() {
+    // 改成你实际的游戏链接
+    let gameUrl = "https://code.juejin.cn/pen/7650526585716899886";
+    navigator.clipboard.writeText(gameUrl).then(() => {
+        alert('🔗 游戏链接已复制：' + gameUrl + '\n发给朋友一起玩！');
+    }).catch(() => {
+        alert('复制失败，请手动复制链接：' + gameUrl);
+    });
+}
     function restartGame() { startGame(); }
     function backToCover() { hideAll(); document.getElementById('cover').classList.remove('hidden'); }
     function backToResult() { hideAll(); document.getElementById('resultBox').classList.remove('hidden'); }
