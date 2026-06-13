@@ -923,11 +923,10 @@ function getQuestions() {
     function showResult() { hideAll(); document.getElementById('resultBox').classList.remove('hidden'); document.getElementById('finalScore').innerText = userScore; document.getElementById('earnedCoins').innerText = earnedCoins; document.getElementById('finalTotalCoins').innerText = totalCoins; let emoji, title, iq; if (userScore >= 90) { emoji = '👑'; title = '知识之神'; iq = '智商碾压99.9%的人类。'; } else if (userScore >= 70) { emoji = '💀'; title = '脑洞王者'; iq = '知识储备还行，偶尔翻车。'; } else if (userScore >= 50) { emoji = '😈'; title = '地狱街溜子'; iq = '半蒙半猜，运气成分大于实力。'; } else { emoji = '🤡'; title = '知识难民'; iq = '你的大脑处于休眠状态。'; } document.getElementById('resultEmoji').innerText = emoji; document.getElementById('rankTitle').innerText = title + ' (最高连击' + maxCombo + '次)'; document.getElementById('iqReport').innerText = iq; }
 
     function openWrongBook() { hideAll(); document.getElementById('wrongBox').classList.remove('hidden'); let list = document.getElementById('wrongList'); if (wrongList.length === 0) { list.innerHTML = '<p style="color:#69f0ae;">🎉 全对！没有错题！</p>'; return; } list.innerHTML = wrongList.map((w, i) => `<div style="background:rgba(255,0,0,0.1);padding:10px;border-radius:10px;margin:8px 0;"><p>❓ ${w.q}</p><p>👤 你答：${w.userAns === true ? '真的' : w.userAns === false ? '假的' : w.userAns}</p><p>✅ 真相：${w.rightAns ? '真的' : '假的'} ${i%2===0 ? '— 真替你害臊' : '— 这都错，服了'}</p><p>💡 ${w.tip}</p></div>`).join(''); }
-// ========== 请在这里填入你的 Gist ID 和 Token ==========
-// 使用 GitHub 仓库中的 scores.json 文件
-const JSON_URL = "https://raw.githubusercontent.com/AAAAAngela/brain-game/main/scores.json";
-// 你的 GitHub Token（需要 repo 权限）
-const GITHUB_TOKEN = "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";
+const REPO_OWNER = "AAAAAngela";
+const REPO_NAME = "brain-game";
+const FILE_PATH = "scores.json";
+const GITHUB_TOKEN = "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";  // 替换这里！
 
 // 读取排行榜
 async function showRank() {
@@ -935,17 +934,18 @@ async function showRank() {
     document.getElementById('rankBox').classList.remove('hidden');
     const tbody = document.querySelector('#rankTable tbody');
     try {
-        const res = await fetch(JSON_URL);
+        const url = `https://raw.githubusercontent.com/${REPO_OWNER}/${REPO_NAME}/main/${FILE_PATH}`;
+        const res = await fetch(url);
         let scores = await res.json();
         if (!Array.isArray(scores)) scores = [];
         scores.sort((a,b) => b.score - a.score);
         tbody.innerHTML = '';
         if (scores.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="3">暂无数据，快去成为第一名！</tr>';
+            tbody.innerHTML = '<tr><td colspan="3">暂无数据，快去成为第一名！</td></tr>';
             return;
         }
         for (let i = 0; i < Math.min(scores.length, 20); i++) {
-            tbody.innerHTML += `<tr><td>${i+1}</td><td>${scores[i].name}</td><td>${scores[i].score}</td></tr>`;
+            tbody.innerHTML += `<tr><td>${i+1}</td><td>${escapeHtml(scores[i].name)}</td><td>${scores[i].score}</td></tr>`;
         }
     } catch(e) {
         console.error(e);
@@ -953,15 +953,35 @@ async function showRank() {
     }
 }
 
-// 提交分数（自动写入 GitHub 仓库）
+// 辅助函数：防XSS
+function escapeHtml(str) {
+    return str.replace(/[&<>]/g, function(m) {
+        if (m === '&') return '&amp;';
+        if (m === '<') return '&lt;';
+        if (m === '>') return '&gt;';
+        return m;
+    });
+}
+
+// 提交分数
 async function saveScore() {
     let name = document.getElementById('playerName').value.trim();
     if (!name) { alert("请输入昵称！"); return; }
+    
     try {
-        // 1. 获取当前文件
-        const fileRes = await fetch('https://api.github.com/repos/AAAAAngela/brain-game/contents/scores.json', {
-            headers: { 'Authorization': `token ${GITHUB_TOKEN}`, 'Accept': 'application/vnd.github.v3+json' }
+        // 1. 获取当前文件信息（需要 sha）
+        const apiUrl = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/${FILE_PATH}`;
+        const fileRes = await fetch(apiUrl, {
+            headers: {
+                'Authorization': `token ${GITHUB_TOKEN}`,
+                'Accept': 'application/vnd.github.v3+json'
+            }
         });
+        
+        if (!fileRes.ok) {
+            throw new Error(`HTTP ${fileRes.status}: ${await fileRes.text()}`);
+        }
+        
         const fileData = await fileRes.json();
         let scores = JSON.parse(atob(fileData.content));
         if (!Array.isArray(scores)) scores = [];
@@ -971,29 +991,36 @@ async function saveScore() {
         if (existing) {
             if (userScore > existing.score) existing.score = userScore;
         } else {
-            scores.push({ name: name, score: userScore, time: Date.now() });
+            scores.push({ name: name, score: userScore, timestamp: Date.now() });
         }
         scores.sort((a,b) => b.score - a.score);
         if (scores.length > 50) scores = scores.slice(0, 50);
         
         // 3. 写回仓库
         const newContent = btoa(unescape(encodeURIComponent(JSON.stringify(scores, null, 2))));
-        await fetch('https://api.github.com/repos/AAAAAngela/brain-game/contents/scores.json', {
+        const putRes = await fetch(apiUrl, {
             method: 'PUT',
             headers: {
                 'Authorization': `token ${GITHUB_TOKEN}`,
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-                message: `自动更新：${name} ${userScore}分`,
+                message: `🎮 ${name} 获得 ${userScore} 分`,
                 content: newContent,
                 sha: fileData.sha
             })
         });
-        alert(`✅ 分数 ${userScore} 已自动提交到全球排行榜！`);
+        
+        if (!putRes.ok) {
+            const err = await putRes.json();
+            throw new Error(err.message || '写入失败');
+        }
+        
+        alert(`✅ 分数 ${userScore} 已提交到排行榜！`);
+        
     } catch(e) {
-        console.error(e);
-        alert('❌ 提交失败，请检查网络或 Token 权限');
+        console.error('保存失败:', e);
+        alert('❌ 提交失败：' + e.message);
     }
 }
 updateCoinDisplay();
