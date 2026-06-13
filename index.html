@@ -976,15 +976,73 @@ function saveScore() {
         });
 }
 
-function shareGame() {
-    // 改成你实际的游戏链接
-    let gameUrl = "https://code.juejin.cn/pen/7650526585716899886";
-    navigator.clipboard.writeText(gameUrl).then(() => {
-        alert('🔗 游戏链接已复制：' + gameUrl + '\n发给朋友一起玩！');
-    }).catch(() => {
-        alert('复制失败，请手动复制链接：' + gameUrl);
-    });
+function backToResult() { hideAll(); document.getElementById('resultBox').classList.remove('hidden'); }
+
+// ↓↓ 在这里完整粘贴分享全部代码 ↓↓
+async function shareGame() {
+    const shareTitle = "脑洞大侦探｜真假知识答题小游戏";
+    const shareDesc = "500道迷惑常识题，测测你的知识储备！";
+    const shareUrl = location.href;
+
+    const isWeChat = /MicroMessenger/i.test(navigator.userAgent);
+    const isQQ = /QQ/i.test(navigator.userAgent);
+
+    if ("share" in navigator) {
+        try {
+            await navigator.share({
+                title: shareTitle,
+                text: shareDesc,
+                url: shareUrl
+            });
+            showToast("分享唤起成功！");
+        } catch (err) {
+            copyGameLink(shareUrl);
+        }
+        return;
+    }
+
+    if (isWeChat || isQQ) {
+        showModal(
+            "📤 分享指引",
+            isWeChat
+                ? "微信内无法直接唤起分享\n请点右上角「···」→转发给好友/朋友圈\n链接已自动复制，可粘贴发送"
+                : "QQ内置浏览器无法直接分享\n链接已复制，粘贴发给好友即可",
+            [{ text: "知道了", cb: () => {} }]
+        );
+        copyGameLink(shareUrl);
+        return;
+    }
+
+    copyGameLink(shareUrl);
 }
+
+function copyGameLink(url) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(url)
+            .then(() => showToast("✅ 游戏链接已复制，粘贴发给好友！"))
+            .catch(() => fallbackCopyText(url));
+    } else {
+        fallbackCopyText(url);
+    }
+}
+
+function fallbackCopyText(text) {
+    const textarea = document.createElement("textarea");
+    textarea.value = text;
+    textarea.style.position = "fixed";
+    textarea.style.opacity = "0";
+    document.body.appendChild(textarea);
+    textarea.select();
+    const ok = document.execCommand("copy");
+    document.body.removeChild(textarea);
+    if (ok) showToast("✅ 链接复制成功！");
+    else showToast("❌ 复制失败，请手动复制地址栏链接");
+}
+// ↑↑ 粘贴结束 ↑↑
+
+updateCoinDisplay();
+initCategories();
+setDifficulty('normal');
     function restartGame() { startGame(); }
     function backToCover() { hideAll(); document.getElementById('cover').classList.remove('hidden'); }
     function backToResult() { hideAll(); document.getElementById('resultBox').classList.remove('hidden'); }
