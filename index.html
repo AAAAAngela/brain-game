@@ -934,36 +934,39 @@ const GIST_MIRROR_URL = GIST_API_URL;
  function showRank() {
     hideAll();
     document.getElementById('rankBox').classList.remove('hidden');
-    fetch(GIST_MIRROR_URL)
+    fetch('https://api.github.com/gists/309ed1fa53acb5d9b5e3645fe1f3f021')
         .then(res => res.json())
         .then(data => {
             let content = data.files['scores.json']?.content || '[]';
             let scores = JSON.parse(content);
+            if (!Array.isArray(scores)) scores = [];
             scores.sort((a,b) => b.score - a.score);
             let tbody = document.getElementById('rankTable');
-            tbody.innerHTML = '<tr><th>名次</th><th>玩家</th><th>分数</th></tr>';
+            tbody.innerHTML = '<tr><th>名次</th><th>玩家</th><th>分数</th><tr>';
             if (scores.length === 0) {
-                tbody.innerHTML += '<tr><td colspan="3">暂无数据，快去成为第一名！</td></tr>';
+                tbody.innerHTML += '<tr><td colspan="3">暂无数据，快去成为第一名！</td><tr>';
                 return;
             }
             for (let i = 0; i < Math.min(scores.length, 20); i++) {
                 tbody.innerHTML += `<tr><td>${i+1}</td><td>${scores[i].name}</td><td>${scores[i].score}</td></tr>`;
             }
         })
-        .catch(() => {
+        .catch((err) => {
+            console.error(err);
             document.getElementById('rankTable').innerHTML = '<tr><td colspan="3">加载失败，请重试</td></tr>';
         });
 }
-
 function saveScore() {
     let name = document.getElementById('playerName').value.trim();
     if (!name) { alert("请输入昵称！"); return; }
     // 读取当前数据
-    fetch(GIST_MIRROR_URL)
+    fetch('https://api.github.com/gists/309ed1fa53acb5d9b5e3645fe1f3f021')
         .then(res => res.json())
         .then(data => {
             let content = data.files['scores.json']?.content || '[]';
             let scores = JSON.parse(content);
+            // 确保 scores 是数组
+            if (!Array.isArray(scores)) scores = [];
             let existing = scores.find(s => s.name === name);
             if (existing) {
                 if (userScore > existing.score) existing.score = userScore;
@@ -972,11 +975,11 @@ function saveScore() {
             }
             scores.sort((a,b) => b.score - a.score);
             if (scores.length > 50) scores = scores.slice(0, 50);
-            // 写回 Gist（这里不能用镜像，需要直接访问 GitHub API）
-            return fetch(GIST_API_URL, {
+            // 写回 Gist
+            return fetch('https://api.github.com/gists/309ed1fa53acb5d9b5e3645fe1f3f021', {
                 method: 'PATCH',
                 headers: {
-                    'Authorization': `token ${GIST_TOKEN}`,
+                    'Authorization': 'token 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',
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
@@ -989,10 +992,9 @@ function saveScore() {
         })
         .catch((err) => {
             console.error(err);
-            alert('❌ 提交失败，请检查网络或 Token 权限');
+            alert('❌ 提交失败，请检查网络');
         });
 }
-
 function backToResult() { hideAll(); document.getElementById('resultBox').classList.remove('hidden'); }
 
 // ↓↓ 在这里完整粘贴分享全部代码 ↓↓
