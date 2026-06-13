@@ -938,61 +938,66 @@ const JSON_URL = "https://aaaaangela.github.io/brain-game/scores.json";
 async function showRank() {
     hideAll();
     document.getElementById('rankBox').classList.remove('hidden');
-    const rankTable = document.getElementById('rankTable');
+    const tbody = document.querySelector('#rankTable tbody');
     try {
-        const res = await fetch(JSON_URL);
-        const scores = await res.json();
-        scores.sort((a, b) => b.score - a.score);
-        let html = '<tr><th>名次</th><th>玩家</th><th>分数</th></tr>';
+        const res = await fetch(GIST_API_URL);
+        const data = await res.json();
+        let content = data.files['scores.json']?.content || '[]';
+        let scores = JSON.parse(content);
+        if (!Array.isArray(scores)) scores = [];
+        scores.sort((a,b) => b.score - a.score);
+        tbody.innerHTML = '';
         if (scores.length === 0) {
-            html += '<tr><td colspan="3">暂无上榜数据，快去提交分数！</td></tr>';
-        } else {
-            scores.slice(0, 20).forEach((item, idx) => {
-                html += `<tr><td>${idx + 1}</td><td>${item.name}</td><td>${item.score}</td></tr>`;
-            });
+            tbody.innerHTML = '<tr><td colspan="3">暂无数据，快去成为第一名！</td></tr>';
+            return;
         }
-        rankTable.innerHTML = html;
-    } catch (err) {
-        rankTable.innerHTML = '<tr><td colspan="3">排行榜加载失败，请稍后重试</td></tr>';
-        console.error(err);
+        for (let i = 0; i < Math.min(scores.length, 20); i++) {
+            tbody.innerHTML += `<tr><td>${i+1}</td><td>${scores[i].name}</td><td>${scores[i].score}</td></tr>`;
+        }
+    } catch(e) {
+        console.error(e);
+        tbody.innerHTML = '<tr><td colspan="3">加载失败，请重试</td></tr>';
     }
 }
-
-// 提交分数，自动复制更新后的完整榜单JSON
-async function saveScore() {
-    const name = document.getElementById('playerName').value.trim();
-    if (!name) {
-        alert("请输入昵称！");
-        return;
-    }
-    // 拉取最新云端榜单
-    let scores = [];
+    async function saveScore() {
+    let name = document.getElementById('playerName').value.trim();
+    if (!name) { alert("请输入昵称！"); return; }
     try {
-        const res = await fetch(JSON_URL);
-        scores = await res.json();
-    } catch {}
-
-    // 同名玩家只保留最高分
-    const existIndex = scores.findIndex(item => item.name === name);
-    if (existIndex >= 0) {
-        if (userScore > scores[existIndex].score) {
-            scores[existIndex].score = userScore;
+        // 读取当前 Gist 数据
+        const res = await fetch(GIST_API_URL);
+        const data = await res.json();
+        let content = data.files['scores.json']?.content || '[]';
+        let scores = JSON.parse(content);
+        if (!Array.isArray(scores)) scores = [];
+        
+        // 更新或添加分数
+        let existing = scores.find(s => s.name === name);
+        if (existing) {
+            if (userScore > existing.score) existing.score = userScore;
+        } else {
+            scores.push({ name: name, score: userScore, time: Date.now() });
         }
-    } else {
-        scores.push({
-            name: name,
-            score: userScore,
-            time: Date.now()
+        
+        // 排序并限制数量
+        scores.sort((a,b) => b.score - a.score);
+        if (scores.length > 50) scores = scores.slice(0, 50);
+        
+        // 写回 Gist
+        await fetch(GIST_API_URL, {
+            method: 'PATCH',
+            headers: {
+                'Authorization': `token ${GIST_TOKEN}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                files: { 'scores.json': { content: JSON.stringify(scores, null, 2) } }
+            })
         });
+        alert(`✅ 分数 ${userScore} 已提交到全球排行榜！`);
+    } catch(e) {
+        console.error(e);
+        alert('❌ 提交失败，请检查网络或 Token 权限');
     }
-    // 排序，最多留存前50条数据
-    scores.sort((a, b) => b.score - a.score);
-    if (scores.length > 50) scores = scores.slice(0, 50);
-
-    // 新榜单自动复制到剪贴板
-    const newJsonText = JSON.stringify(scores, null, 4);
-    await navigator.clipboard.writeText(newJsonText);
-    alert(`✅ 分数 ${userScore} 录入完成！\n新版完整排行榜JSON已复制到剪贴板\n操作：回到GitHub仓库，编辑scores.json，全选粘贴、提交即可全网同步榜单`);
 }
 function backToResult() { hideAll(); document.getElementById('resultBox').classList.remove('hidden'); }
 
@@ -1005,18 +1010,7 @@ function shareGame() {
         alert('复制失败，请手动复制链接：' + gameUrl);
     });
 }
-// ↑↑ 粘贴结束 ↑↑
 
-updateCoinDisplay();
-initCategories();
-setDifficulty('normal');
-    function restartGame() { startGame(); }
-    function backToCover() { hideAll(); document.getElementById('cover').classList.remove('hidden'); }
-    function backToResult() { hideAll(); document.getElementById('resultBox').classList.remove('hidden'); }
-
-    updateCoinDisplay();
-    initCategories();
-    setDifficulty('normal');
 </script>
 </body>
 </html>
