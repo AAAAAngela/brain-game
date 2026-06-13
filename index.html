@@ -923,14 +923,22 @@ function getQuestions() {
     function showResult() { hideAll(); document.getElementById('resultBox').classList.remove('hidden'); document.getElementById('finalScore').innerText = userScore; document.getElementById('earnedCoins').innerText = earnedCoins; document.getElementById('finalTotalCoins').innerText = totalCoins; let emoji, title, iq; if (userScore >= 90) { emoji = '👑'; title = '知识之神'; iq = '智商碾压99.9%的人类。'; } else if (userScore >= 70) { emoji = '💀'; title = '脑洞王者'; iq = '知识储备还行，偶尔翻车。'; } else if (userScore >= 50) { emoji = '😈'; title = '地狱街溜子'; iq = '半蒙半猜，运气成分大于实力。'; } else { emoji = '🤡'; title = '知识难民'; iq = '你的大脑处于休眠状态。'; } document.getElementById('resultEmoji').innerText = emoji; document.getElementById('rankTitle').innerText = title + ' (最高连击' + maxCombo + '次)'; document.getElementById('iqReport').innerText = iq; }
 
     function openWrongBook() { hideAll(); document.getElementById('wrongBox').classList.remove('hidden'); let list = document.getElementById('wrongList'); if (wrongList.length === 0) { list.innerHTML = '<p style="color:#69f0ae;">🎉 全对！没有错题！</p>'; return; } list.innerHTML = wrongList.map((w, i) => `<div style="background:rgba(255,0,0,0.1);padding:10px;border-radius:10px;margin:8px 0;"><p>❓ ${w.q}</p><p>👤 你答：${w.userAns === true ? '真的' : w.userAns === false ? '假的' : w.userAns}</p><p>✅ 真相：${w.rightAns ? '真的' : '假的'} ${i%2===0 ? '— 真替你害臊' : '— 这都错，服了'}</p><p>💡 ${w.tip}</p></div>`).join(''); }
+// ========== 请在这里填入你的 Gist ID 和 Token ==========
+const GIST_ID = '309ed1fa53acb5d9b5e3645fe1f3f021';      // 替换成第一步复制的 Gist ID
+const GIST_TOKEN = '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';     // 替换成第二步复制的 Token
+// =====================================================
 
+const GIST_API_URL = `https://api.github.com/gists/${GIST_ID}`;
+// 使用国内可用镜像
+const GIST_MIRROR_URL = GIST_API_URL;
  function showRank() {
     hideAll();
     document.getElementById('rankBox').classList.remove('hidden');
-    fetch('https://cors-anywhere.herokuapp.com/https://jsonblob.com/api/jsonBlob/019ebff5-d5ee-76de-8ee4-409465a903c8')
+    fetch(GIST_MIRROR_URL)
         .then(res => res.json())
         .then(data => {
-            let scores = data || [];
+            let content = data.files['scores.json']?.content || '[]';
+            let scores = JSON.parse(content);
             scores.sort((a,b) => b.score - a.score);
             let tbody = document.getElementById('rankTable');
             tbody.innerHTML = '<tr><th>名次</th><th>玩家</th><th>分数</th></tr>';
@@ -950,10 +958,12 @@ function getQuestions() {
 function saveScore() {
     let name = document.getElementById('playerName').value.trim();
     if (!name) { alert("请输入昵称！"); return; }
-    fetch('https://cors-anywhere.herokuapp.com/https://jsonblob.com/api/jsonBlob/019ebff5-d5ee-76de-8ee4-409465a903c8')
+    // 读取当前数据
+    fetch(GIST_MIRROR_URL)
         .then(res => res.json())
         .then(data => {
-            let scores = data || [];
+            let content = data.files['scores.json']?.content || '[]';
+            let scores = JSON.parse(content);
             let existing = scores.find(s => s.name === name);
             if (existing) {
                 if (userScore > existing.score) existing.score = userScore;
@@ -962,25 +972,32 @@ function saveScore() {
             }
             scores.sort((a,b) => b.score - a.score);
             if (scores.length > 50) scores = scores.slice(0, 50);
-            return fetch('https://cors-anywhere.herokuapp.com/https://jsonblob.com/api/jsonBlob/019ebff5-d5ee-76de-8ee4-409465a903c8', {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(scores)
+            // 写回 Gist（这里不能用镜像，需要直接访问 GitHub API）
+            return fetch(GIST_API_URL, {
+                method: 'PATCH',
+                headers: {
+                    'Authorization': `token ${GIST_TOKEN}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    files: { 'scores.json': { content: JSON.stringify(scores, null, 2) } }
+                })
             });
         })
         .then(() => {
             alert(`✅ 分数 ${userScore} 已提交到全球排行榜！`);
         })
-        .catch(() => {
-            alert('❌ 提交失败，请检查网络');
+        .catch((err) => {
+            console.error(err);
+            alert('❌ 提交失败，请检查网络或 Token 权限');
         });
 }
 
 function backToResult() { hideAll(); document.getElementById('resultBox').classList.remove('hidden'); }
 
 // ↓↓ 在这里完整粘贴分享全部代码 ↓↓
-async function shareGame() {
-let gameUrl = "https://aaaaangela.github.io/brain-game/";
+function shareGame() {
+    let gameUrl = "https://aaaaangela.github.io/brain-game/";
     navigator.clipboard.writeText(gameUrl).then(() => {
         alert('🔗 游戏链接已复制：' + gameUrl + '\n发给朋友一起玩！');
     }).catch(() => {
